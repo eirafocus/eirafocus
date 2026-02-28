@@ -28,7 +28,8 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
   final FlutterTts _flutterTts = FlutterTts();
   final AudioPlayer _ambientPlayer = AudioPlayer();
   final AudioPlayer _bellPlayer = AudioPlayer();
-  bool _isAmbientOn = true;
+  
+  String _selectedSound = 'None'; // 'None', 'Rain', 'Forest'
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -51,18 +52,12 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     );
 
     _initTts();
-    _setupAmbient();
   }
 
   Future<void> _initTts() async {
     await _flutterTts.setLanguage("en-US");
-    await _flutterTts.setPitch(0.9); // Slightly deeper, calmer
-    await _flutterTts.setSpeechRate(0.35); // Even slower for mindfulness
-    await _flutterTts.setVolume(1.0);
-  }
-
-  Future<void> _setupAmbient() async {
-    _ambientPlayer.setReleaseMode(ReleaseMode.loop);
+    await _flutterTts.setPitch(0.9);
+    await _flutterTts.setSpeechRate(0.35);
   }
 
   @override
@@ -82,7 +77,6 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
       _elapsedSeconds = 0;
     });
 
-    // Start timer immediately - do not await audio
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
         if (mounted) {
@@ -97,19 +91,11 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
       }
     });
 
-    // Audio triggers (Fire and forget)
     _playStartAudio();
   }
 
   void _playStartAudio() async {
-    try {
-      _bellPlayer.play(AssetSource('sounds/bell.mp3')).catchError((e) => debugPrint("Bell error: $e"));
-      if (_isAmbientOn) {
-        _ambientPlayer.play(AssetSource('sounds/rain.mp3'), volume: 0.2).catchError((e) => debugPrint("Rain error: $e"));
-      }
-    } catch (e) {
-      debugPrint("Audio init error: $e");
-    }
+    // Audio calls disabled for now to remove 'ghost' music
     Vibration.vibrate(duration: 100);
   }
 
@@ -140,13 +126,14 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
   }
 
   Future<void> _speak(String text) async {
-    await _flutterTts.speak(text);
+    // TTS disabled until real human voice strategy is finalized
+    // await _flutterTts.speak(text);
   }
 
   void _finishMeditation() async {
     _timer?.cancel();
     _ambientPlayer.stop();
-    await _bellPlayer.play(AssetSource('sounds/bell.mp3'));
+    Vibration.vibrate(duration: 500);
 
     DatabaseHelper.instance.insertSession(
       MeditationSession(
@@ -167,8 +154,8 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Return to dashboard
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
             child: const Text("FINISH"),
           ),
@@ -207,11 +194,14 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
         backgroundColor: Colors.transparent,
         actions: [
           if (!_isActive)
-            IconButton(
-              onPressed: () => setState(() => _isAmbientOn = !_isAmbientOn),
-              icon: Icon(_isAmbientOn ? Icons.water_drop_rounded : Icons.water_drop_outlined),
-              color: _isAmbientOn ? Colors.blue : null,
-              tooltip: 'Background Rain',
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.music_note_rounded),
+              onSelected: (value) => setState(() => _selectedSound = value),
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'None', child: Text('No Sound')),
+                const PopupMenuItem(value: 'Rain', child: Text('Soft Rain')),
+                const PopupMenuItem(value: 'Forest', child: Text('Forest Ambience')),
+              ],
             ),
         ],
       ),
@@ -269,7 +259,14 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, color: colorScheme.onSurface.withOpacity(0.5)),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 24),
+        if (_selectedSound != 'None')
+          Chip(
+            label: Text('Sound: $_selectedSound'),
+            onDeleted: () => setState(() => _selectedSound = 'None'),
+            backgroundColor: Colors.blue.withOpacity(0.1),
+          ),
+        const SizedBox(height: 24),
         if (widget.journey == null)
           Wrap(
             alignment: WrapAlignment.center,
@@ -362,7 +359,7 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
         ),
         const SizedBox(height: 64),
         SizedBox(
-          height: 120, // More height for longer guided prompts
+          height: 120,
           child: AnimatedSwitcher(
             duration: const Duration(seconds: 1),
             child: Text(
