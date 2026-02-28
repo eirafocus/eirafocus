@@ -20,9 +20,25 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE custom_methods (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          inhale INTEGER NOT NULL,
+          hold_after_inhale INTEGER NOT NULL,
+          exhale INTEGER NOT NULL,
+          hold_after_exhale INTEGER NOT NULL
+        )
+      ''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -43,6 +59,32 @@ class DatabaseHelper {
         current_streak INTEGER NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE custom_methods (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        inhale INTEGER NOT NULL,
+        hold_after_inhale INTEGER NOT NULL,
+        exhale INTEGER NOT NULL,
+        hold_after_exhale INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> insertCustomMethod(Map<String, dynamic> method) async {
+    final db = await instance.database;
+    await db.insert('custom_methods', method);
+  }
+
+  Future<List<Map<String, dynamic>>> getCustomMethods() async {
+    final db = await instance.database;
+    return await db.query('custom_methods');
+  }
+
+  Future<void> deleteCustomMethod(int id) async {
+    final db = await instance.database;
+    await db.delete('custom_methods', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> insertSession(MeditationSession session) async {
