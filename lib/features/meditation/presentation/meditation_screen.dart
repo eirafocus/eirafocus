@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_journey.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
@@ -22,7 +23,11 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
   Timer? _timer;
   String _currentPrompt = "Ready to begin?";
   int _elapsedSeconds = 0;
+  
   final FlutterTts _flutterTts = FlutterTts();
+  final AudioPlayer _ambientPlayer = AudioPlayer();
+  final AudioPlayer _bellPlayer = AudioPlayer();
+  bool _isAmbientOn = true;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -45,12 +50,18 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     );
 
     _initTts();
+    _setupAmbient();
   }
 
   Future<void> _initTts() async {
     await _flutterTts.setLanguage("en-US");
-    await _flutterTts.setPitch(1.0);
-    await _flutterTts.setSpeechRate(0.4); // Calm, slow voice
+    await _flutterTts.setPitch(0.9); // Slightly deeper, calmer
+    await _flutterTts.setSpeechRate(0.35); // Even slower for mindfulness
+    await _flutterTts.setVolume(1.0);
+  }
+
+  Future<void> _setupAmbient() async {
+    _ambientPlayer.setReleaseMode(ReleaseMode.loop);
   }
 
   @override
@@ -58,16 +69,25 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     _timer?.cancel();
     _pulseController.dispose();
     _flutterTts.stop();
+    _ambientPlayer.dispose();
+    _bellPlayer.dispose();
     super.dispose();
   }
 
-  void _startMeditation() {
+  void _startMeditation() async {
     setState(() {
       _isActive = true;
       _secondsRemaining = _selectedMinutes * 60;
       _elapsedSeconds = 0;
       _updatePrompt();
     });
+
+    // Play starting bell
+    await _bellPlayer.play(AssetSource('sounds/bell.mp3'));
+    
+    if (_isAmbientOn) {
+      await _ambientPlayer.play(AssetSource('sounds/rain.mp3'), volume: 0.3);
+    }
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
@@ -112,8 +132,11 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     await _flutterTts.speak(text);
   }
 
-  void _finishMeditation() {
+  void _finishMeditation() async {
     _timer?.cancel();
+    _ambientPlayer.stop();
+    await _bellPlayer.play(AssetSource('sounds/bell.mp3'));
+
     DatabaseHelper.instance.insertSession(
       MeditationSession(
         type: 'Meditation',
@@ -150,6 +173,7 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
   void _stopMeditation() {
     _timer?.cancel();
     _flutterTts.stop();
+    _ambientPlayer.stop();
     setState(() {
       _isActive = false;
       _currentPrompt = "Session stopped.";
@@ -170,6 +194,15 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
       appBar: AppBar(
         title: Text(widget.journey?.name ?? "Meditation"),
         backgroundColor: Colors.transparent,
+        actions: [
+          if (!_isActive)
+            IconButton(
+              onPressed: () => setState(() => _isAmbientOn = !_isAmbientOn),
+              icon: Icon(_isAmbientOn ? Icons.water_drop_rounded : Icons.water_drop_outlined),
+              color: _isAmbientOn ? Colors.blue : null,
+              tooltip: 'Background Rain',
+            ),
+        ],
       ),
       extendBodyBehindAppBar: true,
       body: Container(
