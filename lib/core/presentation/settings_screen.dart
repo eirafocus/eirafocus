@@ -57,19 +57,14 @@ class SettingsScreen extends StatelessWidget {
         title: const Text('Privacy Notice'),
         content: const SingleChildScrollView(
           child: Text(
-            'EiraFocus is built with privacy as a priority.
+            '''EiraFocus is built with privacy as a priority.
 
-'
-            '• All your session data (breathing and meditation history) is stored locally on your device.
-'
-            '• No data is ever uploaded to a server or shared with third parties.
-'
-            '• The app works entirely offline.
-'
-            '• No analytics tracking is performed.
+• All your session data (breathing and meditation history) is stored locally on your device.
+• No data is ever uploaded to a server or shared with third parties.
+• The app works entirely offline.
+• No analytics tracking is performed.
 
-'
-            'Your data, your peace of mind.',
+Your data, your peace of mind.''',
           ),
         ),
         actions: [
