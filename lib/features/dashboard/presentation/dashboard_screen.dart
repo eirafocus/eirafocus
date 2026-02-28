@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:eirafocus/features/breathing/presentation/breathing_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -43,6 +44,11 @@ class DashboardScreen extends StatelessWidget {
                     'Calm your mind',
                     Icons.air,
                     Colors.green.shade700,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const BreathingScreen()),
+                      );
+                    },
                   ),
                   _buildDashboardCard(
                     context,
@@ -74,12 +80,12 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDashboardCard(BuildContext context, String title, String subtitle, IconData icon, Color color) {
+  Widget _buildDashboardCard(BuildContext context, String title, String subtitle, IconData icon, Color color, {VoidCallback? onTap}) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
