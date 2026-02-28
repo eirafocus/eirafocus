@@ -310,4 +310,3 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     );
   }
 }
-}
