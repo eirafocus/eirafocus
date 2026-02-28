@@ -74,30 +74,14 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     super.dispose();
   }
 
-  void _startMeditation() async {
+  void _startMeditation() {
     setState(() {
       _isActive = true;
       _secondsRemaining = _selectedMinutes * 60;
       _elapsedSeconds = 0;
     });
 
-    // Audio is wrapped in try-catch so failures don't freeze the timer
-    try {
-      await _bellPlayer.play(AssetSource('sounds/bell.mp3'));
-    } catch (e) {
-      debugPrint("Bell audio error: $e");
-    }
-    
-    try {
-      if (_isAmbientOn) {
-        await _ambientPlayer.play(AssetSource('sounds/rain.mp3'), volume: 0.3);
-      }
-    } catch (e) {
-      debugPrint("Ambient audio error: $e");
-    }
-
-    _updatePrompt(); // Call once at start
-
+    // Start timer immediately - do not await audio
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
         if (mounted) {
@@ -111,6 +95,21 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
         _finishMeditation();
       }
     });
+
+    // Audio triggers (Fire and forget)
+    _playStartAudio();
+  }
+
+  void _playStartAudio() async {
+    try {
+      _bellPlayer.play(AssetSource('sounds/bell.mp3')).catchError((e) => debugPrint("Bell error: $e"));
+      if (_isAmbientOn) {
+        _ambientPlayer.play(AssetSource('sounds/rain.mp3'), volume: 0.2).catchError((e) => debugPrint("Rain error: $e"));
+      }
+    } catch (e) {
+      debugPrint("Audio init error: $e");
+    }
+    Vibration.vibrate(duration: 100);
   }
 
   void _updatePrompt() {
