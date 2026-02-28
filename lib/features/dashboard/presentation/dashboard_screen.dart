@@ -4,6 +4,7 @@ import 'package:eirafocus/features/breathing/presentation/breathing_screen.dart'
 import 'package:eirafocus/features/meditation/presentation/meditation_screen.dart';
 import 'package:eirafocus/features/analytics/presentation/analytics_screen.dart';
 import 'package:eirafocus/features/analytics/presentation/history_screen.dart';
+import 'package:eirafocus/core/presentation/settings_screen.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -38,7 +39,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text('EiraFocus'),
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
             icon: const Icon(Icons.settings),
           ),
         ],
@@ -61,7 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 8),
             const Text(
               'Select a session to begin.',
-              style: TextStyle(fontSize: 16, color: Colors.white70),
+              style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
             ),
             const SizedBox(height: 32),
             Expanded(
