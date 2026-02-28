@@ -217,40 +217,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
                 ),
               ),
               const SizedBox(height: 48),
-              AnimatedBuilder(
-                animation: _circleAnimation,
-                builder: (context, child) {
-                  return Container(
-                    width: 250 * _circleAnimation.value,
-                    height: 250 * _circleAnimation.value,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.primary.withOpacity(0.3),
-                      border: Border.all(
-                        color: colorScheme.primary,
-                        width: 4,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.primary.withOpacity(0.2),
-                          blurRadius: 20,
-                          spreadRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        _instructionText,
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+              _buildFluidIndicator(colorScheme),
               const SizedBox(height: 64),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -273,6 +240,65 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFluidIndicator(ColorScheme colorScheme) {
+    return AnimatedBuilder(
+      animation: _circleAnimation,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Outer Glow/Wave 1
+            _buildWave(280 * _circleAnimation.value, colorScheme.primary.withOpacity(0.1)),
+            // Wave 2
+            _buildWave(220 * _circleAnimation.value, colorScheme.primary.withOpacity(0.2)),
+            // Inner Core
+            Container(
+              width: 160 * _circleAnimation.value,
+              height: 160 * _circleAnimation.value,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.primary.withOpacity(0.6),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.4),
+                    blurRadius: 30,
+                    spreadRadius: 10,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  _instructionText,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildWave(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
       ),
     );
   }
