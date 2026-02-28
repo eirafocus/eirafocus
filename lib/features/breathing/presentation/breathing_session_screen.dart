@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:eirafocus/features/breathing/domain/breathing_method.dart';
+import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
+import 'package:eirafocus/core/data/database_helper.dart';
 
 class BreathingSessionScreen extends StatefulWidget {
   final BreathingMethod method;
@@ -23,10 +25,12 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
   BreathingStage _currentStage = BreathingStage.inhale;
   String _instructionText = 'Get Ready...';
   bool _isPaused = false;
+  DateTime _startTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    _startTime = DateTime.now();
     _circleController = AnimationController(
       vsync: this,
       duration: Duration(seconds: widget.method.inhaleDuration),
@@ -140,7 +144,6 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
   }
 
   void _resumeStage() {
-    // Basic resumption logic - can be improved to track partial seconds
     switch (_currentStage) {
       case BreathingStage.inhale:
         _circleController.forward();
@@ -162,11 +165,30 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
     }
   }
 
+  void _stopAndSave() {
+    final durationSeconds = DateTime.now().difference(_startTime).inSeconds;
+    if (durationSeconds > 10) {
+      DatabaseHelper.instance.insertSession(
+        MeditationSession(
+          type: 'Breathing',
+          method: widget.method.name,
+          durationSeconds: durationSeconds,
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.method.name),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _stopAndSave,
+        ),
       ),
       body: Center(
         child: FadeTransition(
@@ -225,7 +247,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
                   ),
                   const SizedBox(width: 32),
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: _stopAndSave,
                     icon: const Icon(Icons.stop),
                     iconSize: 48,
                     color: Colors.red.shade400,

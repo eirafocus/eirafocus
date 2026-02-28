@@ -18,7 +18,9 @@ class EiraFocusApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'EiraFocus',
-      theme: EiraTheme.darkTheme,
+      theme: EiraTheme.lightTheme,
+      darkTheme: EiraTheme.darkTheme,
+      themeMode: ThemeMode.system, // Switch based on device settings
       debugShowCheckedModeBanner: false,
       home: const SplashScreen(),
     );

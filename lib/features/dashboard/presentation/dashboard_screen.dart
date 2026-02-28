@@ -1,9 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:eirafocus/features/breathing/presentation/breathing_screen.dart';
+import 'package:eirafocus/features/meditation/presentation/meditation_screen.dart';
+import 'package:eirafocus/core/data/database_helper.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int _currentStreak = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStreak();
+  }
+
+  Future<void> _loadStreak() async {
+    final streak = await DatabaseHelper.instance.getCurrentStreak();
+    if (mounted) {
+      setState(() {
+        _currentStreak = streak;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +46,15 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Good Morning!',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Good Day!',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+                _buildStreakBadge(),
+              ],
             ),
             const SizedBox(height: 8),
             const Text(
@@ -56,6 +86,11 @@ class DashboardScreen extends StatelessWidget {
                     'Find focus',
                     Icons.self_improvement,
                     Colors.blue.shade700,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const MeditationScreen()),
+                      );
+                    },
                   ),
                   _buildDashboardCard(
                     context,
@@ -76,6 +111,28 @@ class DashboardScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStreakBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(FontAwesomeIcons.fire, size: 16, color: Colors.orange.shade800),
+          const SizedBox(width: 6),
+          Text(
+            '$_currentStreak days',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
     );
   }
