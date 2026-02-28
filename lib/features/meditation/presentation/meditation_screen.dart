@@ -10,7 +10,7 @@ class MeditationScreen extends StatefulWidget {
   State<MeditationScreen> createState() => _MeditationScreenState();
 }
 
-class _MeditationScreenState extends State<MeditationScreen> {
+class _MeditationScreenState extends State<MeditationScreen> with TickerProviderStateMixin {
   int _selectedMinutes = 5;
   int _secondsRemaining = 0;
   bool _isActive = false;
@@ -18,9 +18,26 @@ class _MeditationScreenState extends State<MeditationScreen> {
   String _currentPrompt = "Ready to begin?";
   int _elapsedSeconds = 0;
 
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat(reverse: true);
+    
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -73,8 +90,9 @@ class _MeditationScreenState extends State<MeditationScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text("Session Complete"),
-        content: const Text("Well done. You've completed your meditation session."),
+        content: const Text("Well done. You've completed your mindfulness session."),
         actions: [
           TextButton(
             onPressed: () {
@@ -108,54 +126,99 @@ class _MeditationScreenState extends State<MeditationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Meditation")),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: _isActive ? _buildActiveUI() : _buildSetupUI(),
+      appBar: AppBar(
+        title: const Text("Meditation"),
+        backgroundColor: Colors.transparent,
+      ),
+      extendBodyBehindAppBar: true,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [
+              Colors.blue.withOpacity(0.1),
+              colorScheme.surface,
+              colorScheme.primary.withOpacity(0.05),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: _isActive ? _buildActiveUI() : _buildSetupUI(),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildSetupUI() {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.self_improvement, size: 80, color: Colors.blue),
-        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.self_improvement_rounded, size: 80, color: Colors.blue),
+        ),
+        const SizedBox(height: 48),
         const Text(
           "Set Duration",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        Text(
+          "Choose how long you want to sit in silence.",
+          style: TextStyle(fontSize: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+        ),
+        const SizedBox(height: 40),
         Wrap(
           alignment: WrapAlignment.center,
-          spacing: 8.0,
-          runSpacing: 8.0,
+          spacing: 12.0,
+          runSpacing: 12.0,
           children: [5, 10, 15, 20, 30, 45, 60].map((mins) {
             bool isSelected = _selectedMinutes == mins;
             return ChoiceChip(
-              label: Text("$mins min"),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Text("$mins min", style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
               selected: isSelected,
+              selectedColor: Colors.blue.withOpacity(0.2),
               onSelected: (selected) {
                 if (selected) setState(() => _selectedMinutes = mins);
               },
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              showCheckmark: false,
             );
           }).toList(),
         ),
         const Spacer(),
         SizedBox(
           width: double.infinity,
+          height: 60,
           child: ElevatedButton(
             onPressed: _startMeditation,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: Colors.blue.shade700,
               foregroundColor: Colors.white,
+              elevation: 8,
+              shadowColor: Colors.blue.withOpacity(0.4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
-            child: const Text("START SESSION", style: TextStyle(fontSize: 18)),
+            child: const Text("START SESSION", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
           ),
         ),
       ],
@@ -164,40 +227,87 @@ class _MeditationScreenState extends State<MeditationScreen> {
 
   Widget _buildActiveUI() {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          _formatTime(_secondsRemaining),
-          style: TextStyle(
-            fontSize: 72,
-            fontWeight: FontWeight.w200,
-            color: colorScheme.onSurface,
-          ),
+        const Spacer(),
+        AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            return Container(
+              width: 280 * _pulseAnimation.value,
+              height: 280 * _pulseAnimation.value,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.blue.withOpacity(0.2), width: 2),
+              ),
+              child: Center(
+                child: Container(
+                  width: 240,
+                  height: 240,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(0.1),
+                        blurRadius: 40,
+                        spreadRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      _formatTime(_secondsRemaining),
+                      style: const TextStyle(
+                        fontSize: 64,
+                        fontWeight: FontWeight.w200,
+                        letterSpacing: -2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
-        const SizedBox(height: 48),
-        AnimatedSwitcher(
-          duration: const Duration(seconds: 1),
-          child: Text(
-            _currentPrompt,
-            key: ValueKey(_currentPrompt),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontStyle: FontStyle.italic,
-              color: colorScheme.onSurface.withOpacity(0.7),
+        const SizedBox(height: 64),
+        SizedBox(
+          height: 80,
+          child: AnimatedSwitcher(
+            duration: const Duration(seconds: 1),
+            child: Text(
+              _currentPrompt,
+              key: ValueKey(_currentPrompt),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+                fontStyle: FontStyle.italic,
+                color: colorScheme.onSurface.withOpacity(0.6),
+              ),
             ),
           ),
         ),
         const Spacer(),
-        IconButton(
-          onPressed: _stopMeditation,
-          icon: const Icon(Icons.stop_circle, size: 80, color: Colors.redAccent),
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.redAccent.withOpacity(0.1),
+            border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+          ),
+          child: IconButton(
+            onPressed: _stopMeditation,
+            icon: const Icon(Icons.stop_rounded),
+            iconSize: 48,
+            color: Colors.redAccent,
+            padding: const EdgeInsets.all(16),
+          ),
         ),
         const SizedBox(height: 24),
       ],
     );
   }
+}
 }
