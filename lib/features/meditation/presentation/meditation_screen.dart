@@ -1,22 +1,28 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
+import 'package:eirafocus/features/meditation/domain/meditation_journey.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
 
 class MeditationScreen extends StatefulWidget {
-  const MeditationScreen({super.key});
+  final MeditationJourney? journey;
+  final int? initialMinutes;
+
+  const MeditationScreen({super.key, this.journey, this.initialMinutes});
 
   @override
   State<MeditationScreen> createState() => _MeditationScreenState();
 }
 
 class _MeditationScreenState extends State<MeditationScreen> with TickerProviderStateMixin {
-  int _selectedMinutes = 5;
+  late int _selectedMinutes;
   int _secondsRemaining = 0;
   bool _isActive = false;
   Timer? _timer;
   String _currentPrompt = "Ready to begin?";
   int _elapsedSeconds = 0;
+  final FlutterTts _flutterTts = FlutterTts();
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -24,6 +30,11 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
   @override
   void initState() {
     super.initState();
+    _selectedMinutes = widget.initialMinutes ?? 5;
+    if (widget.journey != null) {
+      _selectedMinutes = widget.journey!.totalDuration.inMinutes;
+    }
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
@@ -32,12 +43,21 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    await _flutterTts.setLanguage("en-US");
+    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setSpeechRate(0.4); // Calm, slow voice
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
+    _flutterTts.stop();
     super.dispose();
   }
 
@@ -63,16 +83,33 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
   }
 
   void _updatePrompt() {
-    for (var prompt in MeditationPrompt.defaultPrompts.reversed) {
-      if (_elapsedSeconds >= prompt.interval.inSeconds) {
-        if (_currentPrompt != prompt.text) {
+    if (widget.journey != null) {
+      for (var prompt in widget.journey!.prompts) {
+        if (_elapsedSeconds == prompt.timestamp.inSeconds) {
+          _speak(prompt.text);
           setState(() {
             _currentPrompt = prompt.text;
           });
+          break;
         }
-        break;
+      }
+    } else {
+      for (var prompt in MeditationPrompt.defaultPrompts.reversed) {
+        if (_elapsedSeconds >= prompt.interval.inSeconds) {
+          if (_currentPrompt != prompt.text) {
+            setState(() {
+              _currentPrompt = prompt.text;
+            });
+            _speak(prompt.text);
+          }
+          break;
+        }
       }
     }
+  }
+
+  Future<void> _speak(String text) async {
+    await _flutterTts.speak(text);
   }
 
   void _finishMeditation() {
@@ -80,7 +117,7 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
     DatabaseHelper.instance.insertSession(
       MeditationSession(
         type: 'Meditation',
-        method: 'Silent Timer',
+        method: widget.journey?.name ?? 'Silent Timer',
         durationSeconds: _selectedMinutes * 60,
         timestamp: DateTime.now(),
       ),
@@ -112,6 +149,7 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
 
   void _stopMeditation() {
     _timer?.cancel();
+    _flutterTts.stop();
     setState(() {
       _isActive = false;
       _currentPrompt = "Session stopped.";
@@ -130,7 +168,7 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Meditation"),
+        title: Text(widget.journey?.name ?? "Meditation"),
         backgroundColor: Colors.transparent,
       ),
       extendBodyBehindAppBar: true,
@@ -170,40 +208,46 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
             color: Colors.blue.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.self_improvement_rounded, size: 80, color: Colors.blue),
+          child: Icon(
+            widget.journey != null ? Icons.auto_awesome_rounded : Icons.self_improvement_rounded,
+            size: 80,
+            color: Colors.blue,
+          ),
         ),
         const SizedBox(height: 48),
-        const Text(
-          "Set Duration",
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+        Text(
+          widget.journey != null ? widget.journey!.name : "Set Duration",
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
         ),
         const SizedBox(height: 12),
         Text(
-          "Choose how long you want to sit in silence.",
+          widget.journey != null ? widget.journey!.description : "Choose how long you want to sit in silence.",
+          textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, color: colorScheme.onSurface.withOpacity(0.5)),
         ),
         const SizedBox(height: 40),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 12.0,
-          runSpacing: 12.0,
-          children: [5, 10, 15, 20, 30, 45, 60].map((mins) {
-            bool isSelected = _selectedMinutes == mins;
-            return ChoiceChip(
-              label: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Text("$mins min", style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              selected: isSelected,
-              selectedColor: Colors.blue.withOpacity(0.2),
-              onSelected: (selected) {
-                if (selected) setState(() => _selectedMinutes = mins);
-              },
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              showCheckmark: false,
-            );
-          }).toList(),
-        ),
+        if (widget.journey == null)
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12.0,
+            runSpacing: 12.0,
+            children: [5, 10, 15, 20, 30, 45, 60].map((mins) {
+              bool isSelected = _selectedMinutes == mins;
+              return ChoiceChip(
+                label: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text("$mins min", style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                selected: isSelected,
+                selectedColor: Colors.blue.withOpacity(0.2),
+                onSelected: (selected) {
+                  if (selected) setState(() => _selectedMinutes = mins);
+                },
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                showCheckmark: false,
+              );
+            }).toList(),
+          ),
         const Spacer(),
         SizedBox(
           width: double.infinity,
@@ -274,7 +318,7 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
         ),
         const SizedBox(height: 64),
         SizedBox(
-          height: 80,
+          height: 120, // More height for longer guided prompts
           child: AnimatedSwitcher(
             duration: const Duration(seconds: 1),
             child: Text(

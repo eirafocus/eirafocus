@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:eirafocus/features/breathing/presentation/breathing_screen.dart';
-import 'package:eirafocus/features/meditation/presentation/meditation_screen.dart';
+import 'package:eirafocus/features/meditation/presentation/meditation_selection_screen.dart';
 import 'package:eirafocus/features/analytics/presentation/analytics_screen.dart';
 import 'package:eirafocus/features/analytics/presentation/history_screen.dart';
 import 'package:eirafocus/core/presentation/settings_screen.dart';
@@ -122,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Colors.blue.shade700,
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const MeditationScreen()),
+                          MaterialPageRoute(builder: (context) => const MeditationSelectionScreen()),
                         ).then((_) => _loadStreak());
                       },
                     ),
