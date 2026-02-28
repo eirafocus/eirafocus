@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:vibration/vibration.dart';
 import 'package:eirafocus/features/breathing/domain/breathing_method.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
@@ -52,6 +53,12 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
     _startSession();
   }
 
+  void _vibrate() async {
+    if (await Vibration.hasVibrator() ?? false) {
+      Vibration.vibrate(duration: 50);
+    }
+  }
+
   void _startSession() {
     _opacityController.forward();
     _runBreathingCycle();
@@ -64,6 +71,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
       _currentStage = BreathingStage.inhale;
       _instructionText = 'Inhale';
     });
+    _vibrate();
 
     _circleController.duration = Duration(seconds: widget.method.inhaleDuration);
     _circleController.forward();
@@ -80,6 +88,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
         _currentStage = BreathingStage.hold;
         _instructionText = 'Hold';
       });
+      _vibrate();
 
       _timer = Timer(Duration(seconds: widget.method.holdDuration), () {
         if (_isPaused) return;
@@ -95,6 +104,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
       _currentStage = BreathingStage.exhale;
       _instructionText = 'Exhale';
     });
+    _vibrate();
 
     _circleController.duration = Duration(seconds: widget.method.exhaleDuration);
     _circleController.reverse();
@@ -111,6 +121,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
         _currentStage = BreathingStage.holdAfterExhale;
         _instructionText = 'Hold';
       });
+      _vibrate();
 
       _timer = Timer(Duration(seconds: widget.method.holdAfterExhaleDuration), () {
         if (_isPaused) return;
