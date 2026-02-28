@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_journey.dart';
 import 'package:eirafocus/features/meditation/presentation/meditation_screen.dart';
 
@@ -10,7 +11,9 @@ class MeditationSelectionScreen extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Meditation')),
+      appBar: AppBar(
+        title: const Text('Meditation'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
