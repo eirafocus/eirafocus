@@ -64,6 +64,7 @@ class _BreathHoldTestScreenState extends State<BreathHoldTestScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _stopwatch.stop();
     super.dispose();
   }
 
@@ -81,66 +82,67 @@ class _BreathHoldTestScreenState extends State<BreathHoldTestScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (!_testStarted) ...[
-              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
-              const SizedBox(height: 16),
-              const Text(
-                'Safety First',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Never practice breath holding in water or while driving. Stop immediately if you feel dizzy or lightheaded.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 48),
-            ],
-            Text(
-              _formatTime(_stopwatch.elapsed),
-              style: TextStyle(
-                fontSize: 80,
-                fontWeight: FontWeight.w200,
-                color: _isHolding ? colorScheme.primary : colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _isHolding ? 'HOLDING...' : (_testStarted ? 'TEST COMPLETE' : 'READY?'),
-              style: TextStyle(
-                fontSize: 18,
-                letterSpacing: 2,
-                fontWeight: FontWeight.bold,
-                color: _isHolding ? colorScheme.primary : Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 64),
-            SizedBox(
-              width: 200,
-              height: 200,
-              child: ElevatedButton(
-                onPressed: _toggleTest,
-                style: ElevatedButton.styleFrom(
-                  shape: const CircleBorder(),
-                  backgroundColor: _isHolding 
-                      ? Colors.redAccent.withOpacity(0.8) 
-                      : colorScheme.primary,
-                  foregroundColor: Colors.white,
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  'Safety First',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                child: Text(
-                  _isHolding ? 'STOP' : (_testStarted ? 'RETRY' : 'START'),
+                const SizedBox(height: 8),
+                const Text(
+                  'Never practice breath holding in water or while driving. Stop immediately if you feel dizzy or lightheaded.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 48),
+              ],
+              Text(
+                _formatTime(_stopwatch.elapsed),
+                style: TextStyle(
+                  fontSize: 80,
+                  fontWeight: FontWeight.w200,
+                  color: _isHolding ? colorScheme.primary : colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _isHolding ? 'HOLDING...' : (_testStarted ? 'TEST COMPLETE' : 'READY?'),
+                style: TextStyle(
+                  fontSize: 18,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.bold,
+                  color: _isHolding ? colorScheme.primary : Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 64),
+              SizedBox(
+                width: 200,
+                height: 200,
+                child: ElevatedButton(
+                  onPressed: _toggleTest,
+                  style: ElevatedButton.styleFrom(
+                    shape: const CircleBorder(),
+                    backgroundColor: _isHolding 
+                        ? Colors.redAccent.withOpacity(0.8) 
+                        : colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(
+                    _isHolding ? 'STOP' : (_testStarted ? 'RETRY' : 'START'),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              if (_testStarted && !_isHolding) ...[
+                const SizedBox(height: 32),
+                Text(
+                  'Result: $_resultSeconds seconds',
                   style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-              ),
-            ),
-            if (_testStarted && !_isHolding) ...[
-              const SizedBox(height: 32),
-              Text(
-                'Result: $_resultSeconds seconds',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const Text('Saved to your history', style: TextStyle(color: Colors.green)),
+                const Text('Saved to your history', style: TextStyle(color: Colors.green)),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
