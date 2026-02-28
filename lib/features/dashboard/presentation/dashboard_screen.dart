@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:eirafocus/features/breathing/presentation/breathing_screen.dart';
 import 'package:eirafocus/features/meditation/presentation/meditation_screen.dart';
+import 'package:eirafocus/features/analytics/presentation/analytics_screen.dart';
+import 'package:eirafocus/features/analytics/presentation/history_screen.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -77,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const BreathingScreen()),
-                      );
+                      ).then((_) => _loadStreak());
                     },
                   ),
                   _buildDashboardCard(
@@ -89,7 +91,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const MeditationScreen()),
-                      );
+                      ).then((_) => _loadStreak());
                     },
                   ),
                   _buildDashboardCard(
@@ -98,6 +100,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Track sessions',
                     Icons.bar_chart,
                     Colors.orange.shade700,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const AnalyticsScreen()),
+                      );
+                    },
                   ),
                   _buildDashboardCard(
                     context,
@@ -105,6 +112,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Previous stats',
                     Icons.history,
                     Colors.purple.shade700,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                      );
+                    },
                   ),
                 ],
               ),
