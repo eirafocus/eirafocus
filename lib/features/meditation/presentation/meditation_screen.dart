@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:vibration/vibration.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_journey.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
