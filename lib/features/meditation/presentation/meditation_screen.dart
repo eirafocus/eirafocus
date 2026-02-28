@@ -79,7 +79,6 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
       _isActive = true;
       _secondsRemaining = _selectedMinutes * 60;
       _elapsedSeconds = 0;
-      _updatePrompt();
     });
 
     // Play starting bell
@@ -89,13 +88,15 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
       await _ambientPlayer.play(AssetSource('sounds/rain.mp3'), volume: 0.3);
     }
 
+    _updatePrompt(); // Call once at start
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
         setState(() {
           _secondsRemaining--;
           _elapsedSeconds++;
-          _updatePrompt();
         });
+        _updatePrompt();
       } else {
         _finishMeditation();
       }
