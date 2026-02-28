@@ -81,22 +81,32 @@ class _MeditationScreenState extends State<MeditationScreen> with TickerProvider
       _elapsedSeconds = 0;
     });
 
-    // Play starting bell
-    await _bellPlayer.play(AssetSource('sounds/bell.mp3'));
+    // Audio is wrapped in try-catch so failures don't freeze the timer
+    try {
+      await _bellPlayer.play(AssetSource('sounds/bell.mp3'));
+    } catch (e) {
+      debugPrint("Bell audio error: $e");
+    }
     
-    if (_isAmbientOn) {
-      await _ambientPlayer.play(AssetSource('sounds/rain.mp3'), volume: 0.3);
+    try {
+      if (_isAmbientOn) {
+        await _ambientPlayer.play(AssetSource('sounds/rain.mp3'), volume: 0.3);
+      }
+    } catch (e) {
+      debugPrint("Ambient audio error: $e");
     }
 
     _updatePrompt(); // Call once at start
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
-        setState(() {
-          _secondsRemaining--;
-          _elapsedSeconds++;
-        });
-        _updatePrompt();
+        if (mounted) {
+          setState(() {
+            _secondsRemaining--;
+            _elapsedSeconds++;
+          });
+          _updatePrompt();
+        }
       } else {
         _finishMeditation();
       }
