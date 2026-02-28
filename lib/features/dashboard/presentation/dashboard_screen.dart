@@ -34,9 +34,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('EiraFocus'),
+        title: Hero(tag: 'logo', child: Image.asset('assets/eirafocus.png', height: 40)),
         actions: [
           IconButton(
             onPressed: () {
@@ -44,110 +46,137 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Good Day!',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-                _buildStreakBadge(),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Select a session to begin.',
-              style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
-            ),
-            const SizedBox(height: 32),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.topCenter,
+            radius: 1.0,
+            colors: [
+              colorScheme.primary.withOpacity(0.05),
+              colorScheme.surface,
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildDashboardCard(
-                    context,
-                    'Breathing',
-                    'Calm your mind',
-                    Icons.air,
-                    Colors.green.shade700,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const BreathingScreen()),
-                      ).then((_) => _loadStreak());
-                    },
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Good Day!',
+                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 32,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Select a session to begin.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
                   ),
-                  _buildDashboardCard(
-                    context,
-                    'Meditation',
-                    'Find focus',
-                    Icons.self_improvement,
-                    Colors.blue.shade700,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const MeditationScreen()),
-                      ).then((_) => _loadStreak());
-                    },
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    'Statistics',
-                    'Track sessions',
-                    Icons.bar_chart,
-                    Colors.orange.shade700,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const AnalyticsScreen()),
-                      );
-                    },
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    'History',
-                    'Previous stats',
-                    Icons.history,
-                    Colors.purple.shade700,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const HistoryScreen()),
-                      );
-                    },
-                  ),
+                  _buildStreakBadge(),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 32),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 0.85,
+                  children: [
+                    _buildDashboardCard(
+                      context,
+                      'Breathing',
+                      'Calm your mind',
+                      Icons.air_rounded,
+                      Colors.green.shade700,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const BreathingScreen()),
+                        ).then((_) => _loadStreak());
+                      },
+                    ),
+                    _buildDashboardCard(
+                      context,
+                      'Meditation',
+                      'Find focus',
+                      Icons.self_improvement_rounded,
+                      Colors.blue.shade700,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const MeditationScreen()),
+                        ).then((_) => _loadStreak());
+                      },
+                    ),
+                    _buildDashboardCard(
+                      context,
+                      'Statistics',
+                      'Track sessions',
+                      Icons.bar_chart_rounded,
+                      Colors.orange.shade700,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const AnalyticsScreen()),
+                        );
+                      },
+                    ),
+                    _buildDashboardCard(
+                      context,
+                      'History',
+                      'Previous stats',
+                      Icons.history_rounded,
+                      Colors.purple.shade700,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildStreakBadge() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+        color: colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(FontAwesomeIcons.fire, size: 16, color: Colors.orange.shade800),
-          const SizedBox(width: 6),
+          Icon(FontAwesomeIcons.fire, size: 14, color: Colors.orange.shade700),
+          const SizedBox(width: 8),
           Text(
-            '$_currentStreak days',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            '$_currentStreak',
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
         ],
       ),
@@ -155,30 +184,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDashboardCard(BuildContext context, String title, String subtitle, IconData icon, Color color, {VoidCallback? onTap}) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: color),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
-                textAlign: TextAlign.center,
-              ),
-            ],
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.onSurface.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: colorScheme.onSurface.withOpacity(0.04)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(32),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, size: 32, color: color),
+                ),
+                const Spacer(),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface.withOpacity(0.4),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

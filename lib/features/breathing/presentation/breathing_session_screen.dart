@@ -213,33 +213,58 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
                 'Cycle $_currentCycle',
                 style: TextStyle(
                   fontSize: 18,
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface.withOpacity(0.6),
                 ),
               ),
               const SizedBox(height: 48),
-              _buildFluidIndicator(colorScheme),
-              const SizedBox(height: 64),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: _togglePause,
-                    icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                    iconSize: 48,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 32),
-                  IconButton(
-                    onPressed: _stopAndSave,
-                    icon: const Icon(Icons.stop),
-                    iconSize: 48,
-                    color: Colors.red.shade400,
-                  ),
-                ],
+              // Fixed size container to prevent layout shifts
+              SizedBox(
+                height: 300,
+                width: 300,
+                child: Center(child: _buildFluidIndicator(colorScheme)),
               ),
+              const SizedBox(height: 64),
+              _buildControls(colorScheme),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildControls(ColorScheme colorScheme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildRoundButton(
+          onPressed: _togglePause,
+          icon: _isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+          color: colorScheme.primary,
+        ),
+        const SizedBox(width: 40),
+        _buildRoundButton(
+          onPressed: _stopAndSave,
+          icon: Icons.stop_rounded,
+          color: Colors.redAccent.shade200,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoundButton({required VoidCallback onPressed, required IconData icon, required Color color}) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(0.1),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        iconSize: 32,
+        color: color,
+        padding: const EdgeInsets.all(16),
       ),
     );
   }
