@@ -22,10 +22,13 @@ class OnboardingScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Enhance your mindfulness with simple breathing exercises and meditation timers.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, color: Colors.white70),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
               const Spacer(),
               _buildFeatureRow(
@@ -94,7 +97,10 @@ class OnboardingScreen extends StatelessWidget {
               ),
               Text(
                 description,
-                style: const TextStyle(fontSize: 14, color: Colors.white70),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
             ],
           ),

@@ -130,19 +130,18 @@ class _MeditationScreenState extends State<MeditationScreen> {
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [5, 10, 15, 20].map((mins) {
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8.0,
+          runSpacing: 8.0,
+          children: [5, 10, 15, 20, 30, 45, 60].map((mins) {
             bool isSelected = _selectedMinutes == mins;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: ChoiceChip(
-                label: Text("$mins min"),
-                selected: isSelected,
-                onSelected: (selected) {
-                  if (selected) setState(() => _selectedMinutes = mins);
-                },
-              ),
+            return ChoiceChip(
+              label: Text("$mins min"),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) setState(() => _selectedMinutes = mins);
+              },
             );
           }).toList(),
         ),
@@ -164,12 +163,19 @@ class _MeditationScreenState extends State<MeditationScreen> {
   }
 
   Widget _buildActiveUI() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           _formatTime(_secondsRemaining),
-          style: const TextStyle(fontSize: 72, fontWeight: FontWeight.w200),
+          style: TextStyle(
+            fontSize: 72,
+            fontWeight: FontWeight.w200,
+            color: colorScheme.onSurface,
+          ),
         ),
         const SizedBox(height: 48),
         AnimatedSwitcher(
@@ -178,7 +184,11 @@ class _MeditationScreenState extends State<MeditationScreen> {
             _currentPrompt,
             key: ValueKey(_currentPrompt),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 20, fontStyle: FontStyle.italic, color: Colors.white70),
+            style: TextStyle(
+              fontSize: 20,
+              fontStyle: FontStyle.italic,
+              color: colorScheme.onSurface.withOpacity(0.7),
+            ),
           ),
         ),
         const Spacer(),

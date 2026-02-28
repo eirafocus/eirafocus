@@ -182,6 +182,8 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.method.name),
@@ -198,7 +200,10 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
             children: [
               Text(
                 'Cycle $_currentCycle',
-                style: const TextStyle(fontSize: 18, color: Colors.white70),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
               const SizedBox(height: 48),
               AnimatedBuilder(
@@ -209,14 +214,14 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
                     height: 250 * _circleAnimation.value,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                      color: colorScheme.primary.withOpacity(0.3),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: colorScheme.primary,
                         width: 4,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                          color: colorScheme.primary.withOpacity(0.2),
                           blurRadius: 20,
                           spreadRadius: 10,
                         ),
@@ -225,10 +230,10 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
                     child: Center(
                       child: Text(
                         _instructionText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -243,7 +248,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen> with Ti
                     onPressed: _togglePause,
                     icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
                     iconSize: 48,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: colorScheme.primary,
                   ),
                   const SizedBox(width: 32),
                   IconButton(
