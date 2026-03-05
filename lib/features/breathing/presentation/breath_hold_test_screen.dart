@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 
@@ -11,7 +12,7 @@ class BreathHoldTestScreen extends StatefulWidget {
 }
 
 class _BreathHoldTestScreenState extends State<BreathHoldTestScreen> {
-  Stopwatch _stopwatch = Stopwatch();
+  final Stopwatch _stopwatch = Stopwatch();
   Timer? _timer;
   bool _isHolding = false;
   bool _testStarted = false;
@@ -22,9 +23,10 @@ class _BreathHoldTestScreenState extends State<BreathHoldTestScreen> {
       if (!_testStarted) {
         _testStarted = true;
         _isHolding = true;
+        _stopwatch.reset();
         _stopwatch.start();
-        _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-          setState(() {});
+        _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+          if (mounted) setState(() {});
         });
       } else if (_isHolding) {
         _stopwatch.stop();
@@ -33,7 +35,6 @@ class _BreathHoldTestScreenState extends State<BreathHoldTestScreen> {
         _timer?.cancel();
         _saveResult();
       } else {
-        // Reset
         _stopwatch.reset();
         _testStarted = false;
         _resultSeconds = 0;
@@ -43,22 +44,20 @@ class _BreathHoldTestScreenState extends State<BreathHoldTestScreen> {
 
   Future<void> _saveResult() async {
     if (_resultSeconds > 0) {
-      await DatabaseHelper.instance.insertSession(
-        MeditationSession(
-          type: 'Breathing',
-          method: 'Breath Hold Test',
-          durationSeconds: _resultSeconds,
-          timestamp: DateTime.now(),
-        ),
-      );
+      await DatabaseHelper.instance.insertSession(MeditationSession(
+        type: 'Breathing',
+        method: 'Breath Hold Test',
+        durationSeconds: _resultSeconds,
+        timestamp: DateTime.now(),
+      ));
     }
   }
 
-  String _formatTime(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$twoDigitMinutes:$twoDigitSeconds";
+  String _formatTime(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final ms = (d.inMilliseconds.remainder(1000) ~/ 10).toString().padLeft(2, '0');
+    return '$m:$s.$ms';
   }
 
   @override
@@ -70,76 +69,105 @@ class _BreathHoldTestScreenState extends State<BreathHoldTestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Breath Hold Test')),
       body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (!_testStarted) ...[
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
-                const SizedBox(height: 16),
-                const Text(
-                  'Safety First',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Never practice breath holding in water or while driving. Stop immediately if you feel dizzy or lightheaded.',
+                Icon(Icons.info_outline_rounded,
+                    size: 28, color: cs.onSurface.withAlpha(80)),
+                const SizedBox(height: 12),
+                Text(
+                  'Stop if you feel dizzy or lightheaded.\nNever practice in water.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70),
+                  style: tt.bodySmall?.copyWith(height: 1.5),
                 ),
                 const SizedBox(height: 48),
               ],
+
+              // Timer display
               Text(
                 _formatTime(_stopwatch.elapsed),
-                style: TextStyle(
-                  fontSize: 80,
-                  fontWeight: FontWeight.w200,
-                  color: _isHolding ? colorScheme.primary : colorScheme.onSurface,
+                style: GoogleFonts.inter(
+                  fontSize: 56,
+                  fontWeight: FontWeight.w300,
+                  color: _isHolding ? cs.primary : cs.onSurface,
+                  letterSpacing: -1,
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                _isHolding ? 'HOLDING...' : (_testStarted ? 'TEST COMPLETE' : 'READY?'),
-                style: TextStyle(
-                  fontSize: 18,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.bold,
-                  color: _isHolding ? colorScheme.primary : Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 64),
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: ElevatedButton(
-                  onPressed: _toggleTest,
-                  style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(),
-                    backgroundColor: _isHolding 
-                        ? Colors.redAccent.withOpacity(0.8) 
-                        : colorScheme.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(
-                    _isHolding ? 'STOP' : (_testStarted ? 'RETRY' : 'START'),
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              const SizedBox(height: 8),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  _isHolding ? 'Holding...' : (_testStarted ? 'Done' : 'Tap to start'),
+                  key: ValueKey('$_isHolding-$_testStarted'),
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: cs.onSurface.withAlpha(100),
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
+              const SizedBox(height: 48),
+
+              // Big button
+              GestureDetector(
+                onTap: _toggleTest,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                  width: _isHolding ? 140 : 130,
+                  height: _isHolding ? 140 : 130,
+                  decoration: BoxDecoration(
+                    color: _isHolding ? const Color(0xFFEF5350) : cs.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      _isHolding ? 'Stop' : (_testStarted ? 'Retry' : 'Start'),
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
               if (_testStarted && !_isHolding) ...[
-                const SizedBox(height: 32),
-                Text(
-                  'Result: $_resultSeconds seconds',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withAlpha(15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cs.primary.withAlpha(40)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_rounded,
+                          color: cs.primary, size: 20),
+                      const SizedBox(width: 10),
+                      Text(
+                        '$_resultSeconds seconds  ·  Saved',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Text('Saved to your history', style: TextStyle(color: Colors.green)),
               ],
             ],
           ),

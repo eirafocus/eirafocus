@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:eirafocus/core/theme/theme.dart';
 import 'package:eirafocus/features/breathing/presentation/breathing_screen.dart';
 import 'package:eirafocus/features/meditation/presentation/meditation_selection_screen.dart';
 import 'package:eirafocus/features/analytics/presentation/analytics_screen.dart';
@@ -14,143 +15,174 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   int _currentStreak = 0;
+  int _totalSessions = 0;
+  int _totalMinutes = 0;
+
+  late final AnimationController _animController;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
 
   @override
   void initState() {
     super.initState();
-    _loadStreak();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+
+    _loadData();
+    _animController.forward();
   }
 
-  Future<void> _loadStreak() async {
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
     final streak = await DatabaseHelper.instance.getCurrentStreak();
+    final sessions = await DatabaseHelper.instance.getSessions();
     if (mounted) {
       setState(() {
         _currentStreak = streak;
+        _totalSessions = sessions.length;
+        _totalMinutes = sessions.fold<int>(0, (s, e) => s + e.durationSeconds) ~/ 60;
       });
     }
   }
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  void _navigate(Widget screen) {
+    Navigator.of(context)
+        .push(EiraTheme.smoothRoute(screen))
+        .then((_) => _loadData());
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Hero(tag: 'logo', child: Image.asset('assets/eirafocus.png', height: 40)),
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topCenter,
-            radius: 1.0,
-            colors: [
-              colorScheme.primary.withOpacity(0.05),
-              colorScheme.surface,
-            ],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
+              // Top bar
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Image.asset('assets/eirafocus.png', height: 32),
+                  const SizedBox(width: 10),
+                  Text('EiraFocus', style: tt.titleLarge),
+                  const Spacer(),
+                  _IconBtn(
+                    icon: Icons.settings_outlined,
+                    onTap: () => _navigate(const SettingsScreen()),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // Greeting
+              Text(_greeting(), style: tt.headlineLarge),
+              const SizedBox(height: 4),
+              Text(
+                'What would you like to practice?',
+                style: tt.bodyMedium?.copyWith(color: cs.onSurface.withAlpha(120)),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Stats row
+              FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: Row(
                     children: [
-                      Text(
-                        'Good Day!',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 32,
-                            ),
+                      _StatChip(label: 'Streak', value: '$_currentStreak day${_currentStreak == 1 ? '' : 's'}', icon: Icons.local_fire_department_rounded, color: const Color(0xFFFF7043)),
+                      const SizedBox(width: 10),
+                      _StatChip(label: 'Sessions', value: '$_totalSessions', icon: Icons.check_circle_outline_rounded, color: EiraTheme.breathingColor),
+                      const SizedBox(width: 10),
+                      _StatChip(label: 'Minutes', value: '$_totalMinutes', icon: Icons.schedule_rounded, color: EiraTheme.meditationColor),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // Main action cards
+              FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: Column(
+                    children: [
+                      // Breathing - large card
+                      _ActionCard(
+                        title: 'Breathing',
+                        subtitle: 'Guided breathing exercises',
+                        icon: Icons.air_rounded,
+                        color: EiraTheme.breathingColor,
+                        onTap: () => _navigate(const BreathingScreen()),
+                        large: true,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Select a session to begin.',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.onSurface.withOpacity(0.5),
-                        ),
+                      const SizedBox(height: 14),
+                      // Meditation - large card
+                      _ActionCard(
+                        title: 'Meditation',
+                        subtitle: 'Timed mindfulness sessions',
+                        icon: Icons.self_improvement_rounded,
+                        color: EiraTheme.meditationColor,
+                        onTap: () => _navigate(const MeditationSelectionScreen()),
+                        large: true,
+                      ),
+                      const SizedBox(height: 14),
+                      // Bottom row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ActionCard(
+                              title: 'Stats',
+                              subtitle: 'Your progress',
+                              icon: Icons.insights_rounded,
+                              color: EiraTheme.statsColor,
+                              onTap: () => _navigate(const AnalyticsScreen()),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: _ActionCard(
+                              title: 'History',
+                              subtitle: 'Past sessions',
+                              icon: Icons.history_rounded,
+                              color: EiraTheme.historyColor,
+                              onTap: () => _navigate(const HistoryScreen()),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  _buildStreakBadge(),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  childAspectRatio: 0.85,
-                  children: [
-                    _buildDashboardCard(
-                      context,
-                      'Breathing',
-                      'Calm your mind',
-                      Icons.air_rounded,
-                      Colors.green.shade700,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const BreathingScreen()),
-                        ).then((_) => _loadStreak());
-                      },
-                    ),
-                    _buildDashboardCard(
-                      context,
-                      'Meditation',
-                      'Find focus',
-                      Icons.self_improvement_rounded,
-                      Colors.blue.shade700,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const MeditationSelectionScreen()),
-                        ).then((_) => _loadStreak());
-                      },
-                    ),
-                    _buildDashboardCard(
-                      context,
-                      'Statistics',
-                      'Track sessions',
-                      Icons.bar_chart_rounded,
-                      Colors.orange.shade700,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const AnalyticsScreen()),
-                        );
-                      },
-                    ),
-                    _buildDashboardCard(
-                      context,
-                      'History',
-                      'Previous stats',
-                      Icons.history_rounded,
-                      Colors.purple.shade700,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const HistoryScreen()),
-                        );
-                      },
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -159,81 +191,159 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
 
-  Widget _buildStreakBadge() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(FontAwesomeIcons.fire, size: 14, color: Colors.orange.shade700),
-          const SizedBox(width: 8),
-          Text(
-            '$_currentStreak',
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-          ),
-        ],
+// ─── Small icon button ──────────────────────────────────────────
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _IconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outline.withAlpha(80)),
+        ),
+        child: Icon(icon, size: 20, color: cs.onSurface.withAlpha(180)),
       ),
     );
   }
+}
 
-  Widget _buildDashboardCard(BuildContext context, String title, String subtitle, IconData icon, Color color, {VoidCallback? onTap}) {
-    final colorScheme = Theme.of(context).colorScheme;
+// ─── Stat chip ──────────────────────────────────────────────────
+class _StatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.onSurface.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-        border: Border.all(color: colorScheme.onSurface.withOpacity(0.04)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(32),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(icon, size: 32, color: color),
-                ),
-                const Spacer(),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.onSurface.withOpacity(0.4),
-                  ),
-                ),
-              ],
+  const _StatChip({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outline.withAlpha(80)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+              ),
             ),
-          ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: cs.onSurface.withAlpha(100),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Action card ────────────────────────────────────────────────
+class _ActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final bool large;
+
+  const _ActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.large = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.all(large ? 22 : 18),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.outline.withAlpha(80)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: large ? 52 : 44,
+              height: large ? 52 : 44,
+              decoration: BoxDecoration(
+                color: color.withAlpha(22),
+                borderRadius: BorderRadius.circular(large ? 16 : 13),
+              ),
+              child: Icon(icon, color: color, size: large ? 26 : 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: large ? 17 : 15,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: large ? 13 : 12,
+                      color: cs.onSurface.withAlpha(100),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: cs.onSurface.withAlpha(60),
+              size: 22,
+            ),
+          ],
         ),
       ),
     );
