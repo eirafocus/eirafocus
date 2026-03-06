@@ -8,6 +8,7 @@ import 'package:eirafocus/features/analytics/presentation/history_screen.dart';
 import 'package:eirafocus/core/presentation/settings_screen.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
 import 'package:eirafocus/features/streak/presentation/milestone_dialog.dart';
+import 'package:eirafocus/features/challenges/presentation/challenges_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -242,6 +243,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 14),
+                      _ActionCard(
+                        title: 'Challenges',
+                        subtitle: 'Set goals and track progress',
+                        icon: Icons.flag_rounded,
+                        color: const Color(0xFFFF7043),
+                        onTap: () => _navigate(const ChallengesScreen()),
                       ),
                     ],
                   ),

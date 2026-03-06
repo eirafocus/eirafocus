@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -79,6 +79,20 @@ class DatabaseHelper {
     }
     if (oldVersion < 6) {
       await db.execute('ALTER TABLE sessions ADD COLUMN tags TEXT');
+    }
+    if (oldVersion < 7) {
+      await db.execute('''
+        CREATE TABLE challenges (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          type TEXT NOT NULL,
+          target_value INTEGER NOT NULL,
+          start_date TEXT NOT NULL,
+          end_date TEXT NOT NULL,
+          completed INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
     }
   }
 
@@ -145,6 +159,19 @@ class DatabaseHelper {
         timestamp_seconds INTEGER NOT NULL,
         text TEXT NOT NULL,
         FOREIGN KEY (journey_id) REFERENCES custom_journeys(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        type TEXT NOT NULL,
+        target_value INTEGER NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        completed INTEGER NOT NULL DEFAULT 0
       )
     ''');
   }
@@ -332,5 +359,72 @@ class DatabaseHelper {
     final db = await instance.database;
     await db.delete('custom_journey_prompts', where: 'journey_id = ?', whereArgs: [id]);
     await db.delete('custom_journeys', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ─── Challenges ─────────────────────────────────────────────────
+  Future<int> insertChallenge(Map<String, dynamic> challenge) async {
+    final db = await instance.database;
+    return await db.insert('challenges', challenge);
+  }
+
+  Future<List<Map<String, dynamic>>> getActiveChallenges() async {
+    final db = await instance.database;
+    final now = DateTime.now().toIso8601String().split('T')[0];
+    return await db.query('challenges',
+        where: 'end_date >= ? AND completed = 0',
+        whereArgs: [now],
+        orderBy: 'end_date ASC');
+  }
+
+  Future<List<Map<String, dynamic>>> getCompletedChallenges() async {
+    final db = await instance.database;
+    return await db.query('challenges',
+        where: 'completed = 1',
+        orderBy: 'end_date DESC',
+        limit: 10);
+  }
+
+  Future<void> completeChallenge(int id) async {
+    final db = await instance.database;
+    await db.update('challenges', {'completed': 1}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteChallenge(int id) async {
+    final db = await instance.database;
+    await db.delete('challenges', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> getSessionCountBetween(DateTime start, DateTime end) async {
+    final db = await instance.database;
+    final results = await db.query('sessions',
+        where: 'timestamp >= ? AND timestamp <= ?',
+        whereArgs: [start.toIso8601String(), end.toIso8601String()]);
+    return results.length;
+  }
+
+  Future<int> getTotalMinutesBetween(DateTime start, DateTime end) async {
+    final db = await instance.database;
+    final results = await db.query('sessions',
+        where: 'timestamp >= ? AND timestamp <= ?',
+        whereArgs: [start.toIso8601String(), end.toIso8601String()]);
+    int total = 0;
+    for (final r in results) {
+      total += r['duration_seconds'] as int;
+    }
+    return total ~/ 60;
+  }
+
+  Future<int> getStreakDaysBetween(DateTime start, DateTime end) async {
+    final db = await instance.database;
+    final results = await db.query('sessions',
+        where: 'timestamp >= ? AND timestamp <= ?',
+        whereArgs: [start.toIso8601String(), end.toIso8601String()],
+        orderBy: 'timestamp ASC');
+    final days = <String>{};
+    for (final r in results) {
+      final date = DateTime.parse(r['timestamp'] as String);
+      days.add('${date.year}-${date.month}-${date.day}');
+    }
+    return days.length;
   }
 }
