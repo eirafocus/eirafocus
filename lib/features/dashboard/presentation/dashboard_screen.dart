@@ -135,7 +135,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                 style: tt.bodyMedium?.copyWith(color: cs.onSurface.withAlpha(120)),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // Daily quote
+              FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: _DailyQuoteCard(),
+                ),
+              ),
+
+              const SizedBox(height: 20),
 
               // Stats row
               FadeTransition(
@@ -361,6 +372,87 @@ class _MilestoneBadges extends StatelessWidget {
                   ),
                 );
               }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Daily Quote ────────────────────────────────────────────────
+class _DailyQuoteCard extends StatelessWidget {
+  static const _quotes = [
+    ('The present moment is the only moment available to us, and it is the door to all moments.', 'Thich Nhat Hanh'),
+    ('Feelings come and go like clouds in a windy sky. Conscious breathing is my anchor.', 'Thich Nhat Hanh'),
+    ('The mind is everything. What you think you become.', 'Buddha'),
+    ('Peace comes from within. Do not seek it without.', 'Buddha'),
+    ('In the midst of movement and chaos, keep stillness inside of you.', 'Deepak Chopra'),
+    ('Breathe in deeply to bring your mind home to your body.', 'Thich Nhat Hanh'),
+    ('Almost everything will work again if you unplug it for a few minutes, including you.', 'Anne Lamott'),
+    ('The greatest weapon against stress is our ability to choose one thought over another.', 'William James'),
+    ('Do not dwell in the past, do not dream of the future, concentrate the mind on the present moment.', 'Buddha'),
+    ('Quiet the mind, and the soul will speak.', 'Ma Jaya Sati Bhagavati'),
+    ('You are the sky. Everything else is just the weather.', 'Pema Chödrön'),
+    ('Be where you are, not where you think you should be.', 'Unknown'),
+    ('The only way to live is by accepting each minute as an unrepeatable miracle.', 'Tara Brach'),
+    ('Surrender to what is. Let go of what was. Have faith in what will be.', 'Sonia Ricotti'),
+    ('When you realize nothing is lacking, the whole world belongs to you.', 'Lao Tzu'),
+    ('Smile, breathe, and go slowly.', 'Thich Nhat Hanh'),
+    ('The soul always knows what to do to heal itself. The challenge is to silence the mind.', 'Caroline Myss'),
+    ('Nature does not hurry, yet everything is accomplished.', 'Lao Tzu'),
+    ('Within you there is a stillness and a sanctuary to which you can retreat at any time.', 'Hermann Hesse'),
+    ('Each morning we are born again. What we do today is what matters most.', 'Buddha'),
+    ('Life is a dance. Mindfulness is witnessing that dance.', 'Amit Ray'),
+    ('Wherever you are, be there totally.', 'Eckhart Tolle'),
+    ('Silence is not empty. It is full of answers.', 'Unknown'),
+    ('What lies behind us and what lies before us are tiny matters compared to what lies within us.', 'Ralph Waldo Emerson'),
+    ('Meditation is not about stopping thoughts, but recognizing that we are more than our thoughts.', 'Arianna Huffington'),
+    ('Every breath is a chance to begin again.', 'Unknown'),
+    ('Respond; don\'t react. Listen; don\'t talk. Think; don\'t assume.', 'Raji Lukkoor'),
+    ('The best time to relax is when you don\'t have time for it.', 'Sydney J. Harris'),
+    ('Your calm mind is the ultimate weapon against your challenges.', 'Bryant McGill'),
+    ('Mindfulness is a way of befriending ourselves and our experience.', 'Jon Kabat-Zinn'),
+    ('Breathing in, I calm body and mind. Breathing out, I smile.', 'Thich Nhat Hanh'),
+  ];
+
+  const _DailyQuoteCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year)).inDays;
+    final quote = _quotes[dayOfYear % _quotes.length];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.primary.withAlpha(8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.primary.withAlpha(30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.format_quote_rounded, size: 20, color: cs.primary.withAlpha(120)),
+          const SizedBox(height: 6),
+          Text(
+            quote.$1,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              color: cs.onSurface.withAlpha(180),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '— ${quote.$2}',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface.withAlpha(90),
             ),
           ),
         ],
