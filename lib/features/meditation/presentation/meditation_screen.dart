@@ -196,6 +196,7 @@ class _MeditationScreenState extends State<MeditationScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.journey?.name ?? 'Meditation'),
+        centerTitle: true,
         actions: [
           PopupMenuButton<String>(
             icon: Icon(
@@ -237,6 +238,7 @@ class _MeditationScreenState extends State<MeditationScreen>
     final tt = Theme.of(context).textTheme;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Spacer(flex: 2),
         Container(
@@ -351,35 +353,38 @@ class _MeditationScreenState extends State<MeditationScreen>
     return FadeTransition(
       opacity: CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Spacer(flex: 2),
 
           // Pulsing timer circle
-          AnimatedBuilder(
-            animation: _pulseAnim,
-            builder: (_, __) {
-              final scale = _pulseAnim.value;
-              return Container(
-                width: 220 * scale,
-                height: 220 * scale,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: cs.surface,
-                  border: Border.all(color: cs.outline.withAlpha(80)),
-                ),
-                child: Center(
-                  child: Text(
-                    _formatTime(_secondsRemaining),
-                    style: GoogleFonts.inter(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w300,
-                      color: cs.onSurface,
-                      letterSpacing: -1,
+          Center(
+            child: AnimatedBuilder(
+              animation: _pulseAnim,
+              builder: (_, __) {
+                final scale = _pulseAnim.value;
+                return Container(
+                  width: 220 * scale,
+                  height: 220 * scale,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.surface,
+                    border: Border.all(color: cs.outline.withAlpha(80)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _formatTime(_secondsRemaining),
+                      style: GoogleFonts.inter(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w300,
+                        color: cs.onSurface,
+                        letterSpacing: -1,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
 
           const SizedBox(height: 40),
@@ -428,7 +433,8 @@ class _MeditationScreenState extends State<MeditationScreen>
           const Spacer(flex: 3),
 
           // Stop button
-          GestureDetector(
+          Center(
+            child: GestureDetector(
             onTap: _stopMeditation,
             child: Container(
               width: 60,
@@ -440,6 +446,7 @@ class _MeditationScreenState extends State<MeditationScreen>
               ),
               child: const Icon(Icons.stop_rounded, color: Color(0xFFEF5350), size: 28),
             ),
+          ),
           ),
           const SizedBox(height: 16),
         ],

@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
+import 'package:eirafocus/features/meditation/domain/meditation_journey.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -20,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -54,6 +55,25 @@ class DatabaseHelper {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           weekly_minutes INTEGER NOT NULL,
           created_at TEXT NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE custom_journeys (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT NOT NULL,
+          duration_minutes INTEGER NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE custom_journey_prompts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          journey_id INTEGER NOT NULL,
+          timestamp_seconds INTEGER NOT NULL,
+          text TEXT NOT NULL,
+          FOREIGN KEY (journey_id) REFERENCES custom_journeys(id) ON DELETE CASCADE
         )
       ''');
     }
@@ -102,6 +122,25 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         weekly_minutes INTEGER NOT NULL,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE custom_journeys (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        duration_minutes INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE custom_journey_prompts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        journey_id INTEGER NOT NULL,
+        timestamp_seconds INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        FOREIGN KEY (journey_id) REFERENCES custom_journeys(id) ON DELETE CASCADE
       )
     ''');
   }
@@ -238,5 +277,56 @@ class DatabaseHelper {
       totalSeconds += r['duration_seconds'] as int;
     }
     return totalSeconds ~/ 60;
+  }
+
+  // ─── Custom Journeys ──────────────────────────────────────────
+  Future<int> insertCustomJourney(String name, String description, int durationMinutes, List<GuidedPrompt> prompts) async {
+    final db = await instance.database;
+    final journeyId = await db.insert('custom_journeys', {
+      'name': name,
+      'description': description,
+      'duration_minutes': durationMinutes,
+    });
+    for (final p in prompts) {
+      await db.insert('custom_journey_prompts', {
+        'journey_id': journeyId,
+        'timestamp_seconds': p.timestamp.inSeconds,
+        'text': p.text,
+      });
+    }
+    return journeyId;
+  }
+
+  Future<List<MeditationJourney>> getCustomJourneys() async {
+    final db = await instance.database;
+    final journeys = await db.query('custom_journeys', orderBy: 'id DESC');
+    final result = <MeditationJourney>[];
+    for (final j in journeys) {
+      final prompts = await db.query(
+        'custom_journey_prompts',
+        where: 'journey_id = ?',
+        whereArgs: [j['id']],
+        orderBy: 'timestamp_seconds ASC',
+      );
+      result.add(MeditationJourney(
+        name: j['name'] as String,
+        description: j['description'] as String,
+        totalDuration: Duration(minutes: j['duration_minutes'] as int),
+        prompts: prompts
+            .map((p) => GuidedPrompt(
+                  timestamp: Duration(seconds: p['timestamp_seconds'] as int),
+                  text: p['text'] as String,
+                ))
+            .toList(),
+        id: j['id'] as int,
+      ));
+    }
+    return result;
+  }
+
+  Future<void> deleteCustomJourney(int id) async {
+    final db = await instance.database;
+    await db.delete('custom_journey_prompts', where: 'journey_id = ?', whereArgs: [id]);
+    await db.delete('custom_journeys', where: 'id = ?', whereArgs: [id]);
   }
 }

@@ -6,12 +6,14 @@ class GuidedPrompt {
 }
 
 class MeditationJourney {
+  final int? id; // null for built-in, non-null for custom
   final String name;
   final String description;
   final List<GuidedPrompt> prompts;
   final Duration totalDuration;
 
   const MeditationJourney({
+    this.id,
     required this.name,
     required this.description,
     required this.prompts,
