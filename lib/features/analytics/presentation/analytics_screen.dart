@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'package:eirafocus/core/theme/theme.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
@@ -14,6 +15,7 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   late Future<List<MeditationSession>> _sessionsFuture;
+  bool _showWeekly = true; // true = week, false = month
 
   @override
   void initState() {
@@ -109,7 +111,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ),
             child: Column(
               children: [
-                // Bar
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: SizedBox(
@@ -151,6 +152,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ],
             ),
           ),
+
+          const SizedBox(height: 28),
+
+          // Trends section
+          Row(
+            children: [
+              Expanded(child: Text('Trends', style: tt.headlineMedium)),
+              _ToggleChips(
+                showWeekly: _showWeekly,
+                onChanged: (v) => setState(() => _showWeekly = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _TrendChart(sessions: sessions, isWeekly: _showWeekly),
 
           const SizedBox(height: 28),
 
@@ -234,6 +250,240 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Trend Chart ────────────────────────────────────────────────
+class _TrendChart extends StatelessWidget {
+  final List<MeditationSession> sessions;
+  final bool isWeekly;
+
+  const _TrendChart({required this.sessions, required this.isWeekly});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final days = isWeekly ? 7 : 30;
+    final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
+
+    // Build daily data
+    final Map<String, double> dailyMinutes = {};
+    final Map<String, int> dailyCount = {};
+    for (int i = 0; i < days; i++) {
+      final d = startDate.add(Duration(days: i));
+      final key = DateFormat('yyyy-MM-dd').format(d);
+      dailyMinutes[key] = 0;
+      dailyCount[key] = 0;
+    }
+    for (final s in sessions) {
+      final key = DateFormat('yyyy-MM-dd').format(s.timestamp);
+      if (dailyMinutes.containsKey(key)) {
+        dailyMinutes[key] = dailyMinutes[key]! + s.durationSeconds / 60;
+        dailyCount[key] = dailyCount[key]! + 1;
+      }
+    }
+
+    final minuteSpots = <FlSpot>[];
+    final countSpots = <FlSpot>[];
+    final labels = <String>[];
+    int i = 0;
+    for (final key in dailyMinutes.keys) {
+      minuteSpots.add(FlSpot(i.toDouble(), dailyMinutes[key]!));
+      countSpots.add(FlSpot(i.toDouble(), dailyCount[key]!.toDouble()));
+      final d = DateTime.parse(key);
+      labels.add(isWeekly
+          ? DateFormat('E').format(d)
+          : (i % 5 == 0 ? DateFormat('d').format(d) : ''));
+      i++;
+    }
+
+    final maxMinutes = minuteSpots.fold<double>(0, (m, s) => s.y > m ? s.y : m);
+    final maxCount = countSpots.fold<double>(0, (m, s) => s.y > m ? s.y : m);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Minutes chart
+          Text('Minutes per day',
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(120))),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 140,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: (maxMinutes > 0 ? maxMinutes / 3 : 1).ceilToDouble(),
+                  getDrawingHorizontalLine: (v) => FlLine(color: cs.outline.withAlpha(40), strokeWidth: 1),
+                ),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 32,
+                      getTitlesWidget: (v, _) => Text(
+                        v.toInt().toString(),
+                        style: GoogleFonts.inter(fontSize: 10, color: cs.onSurface.withAlpha(80)),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: (v, _) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= labels.length) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(labels[idx],
+                              style: GoogleFonts.inter(fontSize: 10, color: cs.onSurface.withAlpha(80))),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minY: 0,
+                maxY: maxMinutes > 0 ? maxMinutes * 1.2 : 10,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: minuteSpots,
+                    isCurved: true,
+                    color: EiraTheme.meditationColor,
+                    barWidth: 2.5,
+                    dotData: FlDotData(show: isWeekly),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: EiraTheme.meditationColor.withAlpha(25),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Session count chart
+          Text('Sessions per day',
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(120))),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 120,
+            child: BarChart(
+              BarChartData(
+                gridData: FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 32,
+                      interval: 1,
+                      getTitlesWidget: (v, _) {
+                        if (v != v.roundToDouble()) return const SizedBox();
+                        return Text(
+                          v.toInt().toString(),
+                          style: GoogleFonts.inter(fontSize: 10, color: cs.onSurface.withAlpha(80)),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: (v, _) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= labels.length) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(labels[idx],
+                              style: GoogleFonts.inter(fontSize: 10, color: cs.onSurface.withAlpha(80))),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                maxY: maxCount > 0 ? maxCount + 1 : 3,
+                barGroups: countSpots.map((s) {
+                  return BarChartGroupData(
+                    x: s.x.toInt(),
+                    barRods: [
+                      BarChartRodData(
+                        toY: s.y,
+                        color: EiraTheme.breathingColor,
+                        width: isWeekly ? 16 : 5,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Toggle Chips ─────────────────────────────────────────────
+class _ToggleChips extends StatelessWidget {
+  final bool showWeekly;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleChips({required this.showWeekly, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _chip(context, 'Week', showWeekly, () => onChanged(true), cs),
+        const SizedBox(width: 6),
+        _chip(context, 'Month', !showWeekly, () => onChanged(false), cs),
+      ],
+    );
+  }
+
+  Widget _chip(BuildContext context, String label, bool selected, VoidCallback onTap, ColorScheme cs) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? cs.primary.withAlpha(80) : cs.outline.withAlpha(60),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? cs.primary : cs.onSurface.withAlpha(100),
+          ),
+        ),
       ),
     );
   }

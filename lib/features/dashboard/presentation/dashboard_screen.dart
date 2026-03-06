@@ -7,6 +7,7 @@ import 'package:eirafocus/features/analytics/presentation/analytics_screen.dart'
 import 'package:eirafocus/features/analytics/presentation/history_screen.dart';
 import 'package:eirafocus/core/presentation/settings_screen.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
+import 'package:eirafocus/features/streak/presentation/milestone_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -20,6 +21,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _currentStreak = 0;
   int _totalSessions = 0;
   int _totalMinutes = 0;
+  int? _weeklyGoal;
+  int _weeklyMinutes = 0;
 
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
@@ -51,11 +54,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _loadData() async {
     final streak = await DatabaseHelper.instance.getCurrentStreak();
     final sessions = await DatabaseHelper.instance.getSessions();
+    final weeklyGoal = await DatabaseHelper.instance.getWeeklyGoal();
+    final weeklyMinutes = await DatabaseHelper.instance.getWeeklyMinutes();
     if (mounted) {
       setState(() {
         _currentStreak = streak;
         _totalSessions = sessions.length;
         _totalMinutes = sessions.fold<int>(0, (s, e) => s + e.durationSeconds) ~/ 60;
+        _weeklyGoal = weeklyGoal;
+        _weeklyMinutes = weeklyMinutes;
       });
     }
   }
@@ -70,7 +77,26 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _navigate(Widget screen) {
     Navigator.of(context)
         .push(EiraTheme.smoothRoute(screen))
-        .then((_) => _loadData());
+        .then((_) => _loadDataAndCheckMilestone());
+  }
+
+  Future<void> _loadDataAndCheckMilestone() async {
+    final oldStreak = _currentStreak;
+    await _loadData();
+    if (_currentStreak > oldStreak) {
+      final milestone = MilestoneDialog.checkMilestone(_currentStreak);
+      if (milestone != null && mounted) {
+        MilestoneDialog.show(context, milestone);
+        return;
+      }
+    }
+    // Check weekly goal celebration
+    if (_weeklyGoal != null && _weeklyMinutes >= _weeklyGoal! && mounted) {
+      final oldWeeklyMinutes = _weeklyMinutes - 1; // approximate
+      if (oldWeeklyMinutes < _weeklyGoal!) {
+        // Just hit the goal
+      }
+    }
   }
 
   @override
@@ -128,6 +154,33 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
 
+              // Weekly goal progress
+              if (_weeklyGoal != null) ...[
+                const SizedBox(height: 16),
+                FadeTransition(
+                  opacity: _fadeAnim,
+                  child: SlideTransition(
+                    position: _slideAnim,
+                    child: _WeeklyGoalCard(
+                      currentMinutes: _weeklyMinutes,
+                      goalMinutes: _weeklyGoal!,
+                    ),
+                  ),
+                ),
+              ],
+
+              // Milestone badges
+              if (_currentStreak >= 3) ...[
+                const SizedBox(height: 16),
+                FadeTransition(
+                  opacity: _fadeAnim,
+                  child: SlideTransition(
+                    position: _slideAnim,
+                    child: _MilestoneBadges(currentStreak: _currentStreak),
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 28),
 
               // Main action cards
@@ -137,7 +190,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                   position: _slideAnim,
                   child: Column(
                     children: [
-                      // Breathing - large card
                       _ActionCard(
                         title: 'Breathing',
                         subtitle: 'Guided breathing exercises',
@@ -147,7 +199,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         large: true,
                       ),
                       const SizedBox(height: 14),
-                      // Meditation - large card
                       _ActionCard(
                         title: 'Meditation',
                         subtitle: 'Timed mindfulness sessions',
@@ -157,7 +208,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         large: true,
                       ),
                       const SizedBox(height: 14),
-                      // Bottom row
                       Row(
                         children: [
                           Expanded(
@@ -188,6 +238,128 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Weekly Goal Card ──────────────────────────────────────────
+class _WeeklyGoalCard extends StatelessWidget {
+  final int currentMinutes;
+  final int goalMinutes;
+
+  const _WeeklyGoalCard({required this.currentMinutes, required this.goalMinutes});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final progress = (currentMinutes / goalMinutes).clamp(0.0, 1.0);
+    final met = currentMinutes >= goalMinutes;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                met ? Icons.check_circle_rounded : Icons.flag_rounded,
+                size: 18,
+                color: met ? EiraTheme.statsColor : cs.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Weekly Goal',
+                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
+              ),
+              const Spacer(),
+              Text(
+                '$currentMinutes / $goalMinutes min',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: met ? EiraTheme.statsColor : cs.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor: cs.outline.withAlpha(40),
+              valueColor: AlwaysStoppedAnimation(met ? EiraTheme.statsColor : cs.primary),
+            ),
+          ),
+          if (met) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Goal reached! Great work this week!',
+              style: GoogleFonts.inter(fontSize: 12, color: EiraTheme.statsColor, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Milestone Badges ──────────────────────────────────────────
+class _MilestoneBadges extends StatelessWidget {
+  final int currentStreak;
+
+  const _MilestoneBadges({required this.currentStreak});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final achieved = MilestoneDialog.getAchievedMilestones(currentStreak);
+    if (achieved.isEmpty) return const SizedBox();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.emoji_events_rounded, size: 18, color: const Color(0xFFFF7043)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: achieved.map((m) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF7043).withAlpha(15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFF7043).withAlpha(40)),
+                  ),
+                  child: Text(
+                    '${m}d',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFFF7043),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }

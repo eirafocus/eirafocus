@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eirafocus/core/theme/theme.dart';
+import 'package:eirafocus/core/services/notification_service.dart';
 import 'package:eirafocus/features/onboarding/presentation/splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -12,6 +13,8 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+  // Init notifications lazily to avoid blocking app startup
+  NotificationService.instance.init();
   runApp(
     const ProviderScope(child: EiraFocusApp()),
   );

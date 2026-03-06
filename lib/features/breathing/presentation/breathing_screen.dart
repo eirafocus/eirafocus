@@ -16,17 +16,39 @@ class BreathingScreen extends StatefulWidget {
 
 class _BreathingScreenState extends State<BreathingScreen> {
   late Future<List<Map<String, dynamic>>> _customMethodsFuture;
+  List<String> _favorites = [];
 
   @override
   void initState() {
     super.initState();
     _refreshCustomMethods();
+    _loadFavorites();
   }
 
   void _refreshCustomMethods() {
     setState(() {
       _customMethodsFuture = DatabaseHelper.instance.getCustomMethods();
     });
+  }
+
+  Future<void> _loadFavorites() async {
+    final favs = await DatabaseHelper.instance.getFavorites();
+    if (mounted) setState(() => _favorites = favs);
+  }
+
+  Future<void> _toggleFavorite(String name) async {
+    if (_favorites.contains(name)) {
+      await DatabaseHelper.instance.removeFavorite(name);
+    } else {
+      await DatabaseHelper.instance.insertFavorite(name);
+    }
+    await _loadFavorites();
+  }
+
+  List<BreathingMethod> get _favoriteMethods {
+    return BreathingMethod.predefinedMethods
+        .where((m) => _favorites.contains(m.name))
+        .toList();
   }
 
   @override
@@ -41,6 +63,15 @@ class _BreathingScreenState extends State<BreathingScreen> {
         children: [
           // Breath hold test card
           _buildBreathHoldCard(context),
+
+          // Favorites section
+          if (_favoriteMethods.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            Text('Favorites', style: tt.headlineMedium),
+            const SizedBox(height: 12),
+            ..._favoriteMethods.map((m) => _buildMethodTile(context, m)),
+          ],
+
           const SizedBox(height: 28),
 
           // Section: Techniques
@@ -128,8 +159,6 @@ class _BreathingScreenState extends State<BreathingScreen> {
   }
 
   Widget _buildBreathHoldCard(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         EiraTheme.smoothRoute(const BreathHoldTestScreen()),
@@ -187,8 +216,8 @@ class _BreathingScreenState extends State<BreathingScreen> {
 
   Widget _buildMethodTile(BuildContext context, BreathingMethod method) {
     final cs = Theme.of(context).colorScheme;
+    final isFav = _favorites.contains(method.name);
 
-    // Format the pattern
     final parts = <String>[
       '${method.inhaleDuration}s in',
     ];
@@ -240,6 +269,18 @@ class _BreathingScreenState extends State<BreathingScreen> {
                   ],
                 ),
               ),
+              GestureDetector(
+                onTap: () => _toggleFavorite(method.name),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    color: isFav ? const Color(0xFFEF5350) : cs.onSurface.withAlpha(60),
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
               Icon(Icons.play_circle_filled_rounded,
                   color: EiraTheme.breathingColor, size: 32),
             ],

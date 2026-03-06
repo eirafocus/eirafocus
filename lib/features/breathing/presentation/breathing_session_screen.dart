@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vibration/vibration.dart';
-import 'package:eirafocus/core/theme/theme.dart';
 import 'package:eirafocus/features/breathing/domain/breathing_method.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
+import 'package:eirafocus/core/services/audio_service.dart';
 
 class BreathingSessionScreen extends StatefulWidget {
   final BreathingMethod method;
@@ -22,12 +22,15 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
   late AnimationController _fadeController;
 
   Timer? _timer;
+  Timer? _hapticTimer;
   int _currentCycle = 0;
   BreathingStage _currentStage = BreathingStage.inhale;
   String _instructionText = 'Get Ready';
   bool _isPaused = false;
   DateTime _startTime = DateTime.now();
   int _stageSecondsLeft = 0;
+  String _selectedSound = 'None';
+  bool _hapticEnabled = true;
 
   @override
   void initState() {
@@ -48,9 +51,48 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
     _startSession();
   }
 
-  void _vibrate() async {
-    if (await Vibration.hasVibrator() ?? false) {
-      Vibration.vibrate(duration: 40);
+  void _vibrate({int duration = 40}) async {
+    if (!_hapticEnabled) return;
+    if (await Vibration.hasVibrator() == true) {
+      Vibration.vibrate(duration: duration);
+    }
+  }
+
+  void _startRhythmicHaptics(BreathingStage stage, int totalSeconds) {
+    _hapticTimer?.cancel();
+    if (!_hapticEnabled) return;
+
+    int elapsed = 0;
+    // Immediate first pulse
+    _pulseForStage(stage, elapsed, totalSeconds);
+
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 800), (t) {
+      if (_isPaused || !mounted) {
+        t.cancel();
+        return;
+      }
+      elapsed++;
+      _pulseForStage(stage, elapsed, totalSeconds);
+    });
+  }
+
+  void _pulseForStage(BreathingStage stage, int tick, int totalSeconds) {
+    switch (stage) {
+      case BreathingStage.inhale:
+        // Crescendo: vibration grows longer as you inhale
+        final progress = totalSeconds > 0 ? (tick / (totalSeconds * 1.25)).clamp(0.0, 1.0) : 0.5;
+        _vibrate(duration: 20 + (progress * 60).toInt());
+        break;
+      case BreathingStage.hold:
+      case BreathingStage.holdAfterExhale:
+        // Steady gentle pulse
+        _vibrate(duration: 15);
+        break;
+      case BreathingStage.exhale:
+        // Decrescendo: vibration fades as you exhale
+        final progress = totalSeconds > 0 ? (1 - tick / (totalSeconds * 1.25)).clamp(0.0, 1.0) : 0.5;
+        _vibrate(duration: 20 + (progress * 60).toInt());
+        break;
     }
   }
 
@@ -58,52 +100,60 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
 
   void _runBreathingCycle() {
     if (_isPaused) return;
+    final dur = widget.method.inhaleDuration;
     setState(() {
       _currentStage = BreathingStage.inhale;
       _instructionText = 'Inhale';
-      _stageSecondsLeft = widget.method.inhaleDuration;
+      _stageSecondsLeft = dur;
+
     });
-    _vibrate();
-    _breathController.duration = Duration(seconds: widget.method.inhaleDuration);
+    _startRhythmicHaptics(BreathingStage.inhale, dur);
+    _breathController.duration = Duration(seconds: dur);
     _breathController.forward(from: 0);
-    _startCountdown(widget.method.inhaleDuration, _runHoldStage);
+    _startCountdown(dur, _runHoldStage);
   }
 
   void _runHoldStage() {
     if (widget.method.holdDuration > 0) {
+      final dur = widget.method.holdDuration;
       setState(() {
         _currentStage = BreathingStage.hold;
         _instructionText = 'Hold';
-        _stageSecondsLeft = widget.method.holdDuration;
+        _stageSecondsLeft = dur;
+  
       });
-      _vibrate();
-      _startCountdown(widget.method.holdDuration, _runExhaleStage);
+      _startRhythmicHaptics(BreathingStage.hold, dur);
+      _startCountdown(dur, _runExhaleStage);
     } else {
       _runExhaleStage();
     }
   }
 
   void _runExhaleStage() {
+    final dur = widget.method.exhaleDuration;
     setState(() {
       _currentStage = BreathingStage.exhale;
       _instructionText = 'Exhale';
-      _stageSecondsLeft = widget.method.exhaleDuration;
+      _stageSecondsLeft = dur;
+
     });
-    _vibrate();
-    _breathController.duration = Duration(seconds: widget.method.exhaleDuration);
+    _startRhythmicHaptics(BreathingStage.exhale, dur);
+    _breathController.duration = Duration(seconds: dur);
     _breathController.reverse(from: 1);
-    _startCountdown(widget.method.exhaleDuration, _runHoldAfterExhaleStage);
+    _startCountdown(dur, _runHoldAfterExhaleStage);
   }
 
   void _runHoldAfterExhaleStage() {
     if (widget.method.holdAfterExhaleDuration > 0) {
+      final dur = widget.method.holdAfterExhaleDuration;
       setState(() {
         _currentStage = BreathingStage.holdAfterExhale;
         _instructionText = 'Hold';
-        _stageSecondsLeft = widget.method.holdAfterExhaleDuration;
+        _stageSecondsLeft = dur;
+  
       });
-      _vibrate();
-      _startCountdown(widget.method.holdAfterExhaleDuration, () {
+      _startRhythmicHaptics(BreathingStage.holdAfterExhale, dur);
+      _startCountdown(dur, () {
         _currentCycle++;
         _runBreathingCycle();
       });
@@ -135,6 +185,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
       _isPaused = !_isPaused;
       if (_isPaused) {
         _timer?.cancel();
+        _hapticTimer?.cancel();
         _breathController.stop();
       } else {
         _resumeStage();
@@ -165,23 +216,85 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
   }
 
   void _stopAndSave() {
+    _timer?.cancel();
+    _hapticTimer?.cancel();
+    _breathController.stop();
+    AudioService.instance.stop();
     final duration = DateTime.now().difference(_startTime).inSeconds;
     if (duration > 10) {
-      DatabaseHelper.instance.insertSession(MeditationSession(
-        type: 'Breathing',
-        method: widget.method.name,
-        durationSeconds: duration,
-        timestamp: DateTime.now(),
-      ));
+      _showJournalDialog(duration);
+    } else {
+      Navigator.of(context).pop();
     }
-    Navigator.of(context).pop();
+  }
+
+  void _showJournalDialog(int duration) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          title: const Text('Session Complete'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Great job! ${duration ~/ 60}m ${duration % 60}s of breathing.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'How do you feel? (optional)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                DatabaseHelper.instance.insertSession(MeditationSession(
+                  type: 'Breathing',
+                  method: widget.method.name,
+                  durationSeconds: duration,
+                  timestamp: DateTime.now(),
+                ));
+                Navigator.pop(ctx);
+                Navigator.of(context).pop();
+              },
+              child: Text('Skip', style: TextStyle(color: cs.onSurface.withAlpha(120))),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final journal = controller.text.trim();
+                DatabaseHelper.instance.insertSession(MeditationSession(
+                  type: 'Breathing',
+                  method: widget.method.name,
+                  durationSeconds: duration,
+                  timestamp: DateTime.now(),
+                  journal: journal.isEmpty ? null : journal,
+                ));
+                Navigator.pop(ctx);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _hapticTimer?.cancel();
     _breathController.dispose();
     _fadeController.dispose();
+    AudioService.instance.stop();
     super.dispose();
   }
 
@@ -196,6 +309,40 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
           icon: const Icon(Icons.close_rounded),
           onPressed: _stopAndSave,
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _hapticEnabled ? Icons.vibration_rounded : Icons.smartphone_rounded,
+              color: _hapticEnabled ? cs.primary : cs.onSurface.withAlpha(80),
+              size: 22,
+            ),
+            tooltip: _hapticEnabled ? 'Haptics on' : 'Haptics off',
+            onPressed: () {
+              setState(() => _hapticEnabled = !_hapticEnabled);
+              if (!_hapticEnabled) _hapticTimer?.cancel();
+            },
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.music_note_rounded,
+              color: _selectedSound != 'None' ? cs.primary : null,
+            ),
+            onSelected: (v) {
+              setState(() => _selectedSound = v);
+              if (v != 'None') {
+                AudioService.instance.play(v);
+              } else {
+                AudioService.instance.stop();
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'None', child: Text('No Sound')),
+              ...AudioService.availableSounds.map(
+                (s) => PopupMenuItem(value: s, child: Text(s)),
+              ),
+            ],
+          ),
+        ],
       ),
       body: FadeTransition(
         opacity: CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
@@ -222,6 +369,27 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
                 ),
               ),
             ),
+
+            // Volume slider
+            if (_selectedSound != 'None')
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48),
+                child: Row(
+                  children: [
+                    Icon(Icons.volume_down_rounded, size: 18, color: cs.onSurface.withAlpha(80)),
+                    Expanded(
+                      child: Slider(
+                        value: AudioService.instance.volume,
+                        onChanged: (v) {
+                          AudioService.instance.setVolume(v);
+                          setState(() {});
+                        },
+                      ),
+                    ),
+                    Icon(Icons.volume_up_rounded, size: 18, color: cs.onSurface.withAlpha(80)),
+                  ],
+                ),
+              ),
 
             // Controls
             Padding(

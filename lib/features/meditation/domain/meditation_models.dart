@@ -22,6 +22,7 @@ class MeditationSession {
   final String method;
   final int durationSeconds;
   final DateTime timestamp;
+  final String? journal;
 
   const MeditationSession({
     this.id,
@@ -29,6 +30,7 @@ class MeditationSession {
     required this.method,
     required this.durationSeconds,
     required this.timestamp,
+    this.journal,
   });
 
   Map<String, dynamic> toMap() {
@@ -37,6 +39,7 @@ class MeditationSession {
       'method': method,
       'duration_seconds': durationSeconds,
       'timestamp': timestamp.toIso8601String(),
+      if (journal != null) 'journal': journal,
     };
   }
 
@@ -47,6 +50,7 @@ class MeditationSession {
       method: map['method'],
       durationSeconds: map['duration_seconds'],
       timestamp: DateTime.parse(map['timestamp']),
+      journal: map['journal'] as String?,
     );
   }
 }

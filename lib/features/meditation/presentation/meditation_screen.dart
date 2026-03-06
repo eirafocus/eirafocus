@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:vibration/vibration.dart';
 import 'package:eirafocus/core/theme/theme.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_journey.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
+import 'package:eirafocus/core/services/audio_service.dart';
 
 class MeditationScreen extends StatefulWidget {
   final MeditationJourney? journey;
@@ -27,9 +26,6 @@ class _MeditationScreenState extends State<MeditationScreen>
   String _currentPrompt = '';
   int _elapsedSeconds = 0;
 
-  final FlutterTts _flutterTts = FlutterTts();
-  final AudioPlayer _ambientPlayer = AudioPlayer();
-  final AudioPlayer _bellPlayer = AudioPlayer();
   String _selectedSound = 'None';
 
   late AnimationController _pulseController;
@@ -54,13 +50,6 @@ class _MeditationScreenState extends State<MeditationScreen>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-    _initTts();
-  }
-
-  Future<void> _initTts() async {
-    await _flutterTts.setLanguage("en-US");
-    await _flutterTts.setPitch(0.9);
-    await _flutterTts.setSpeechRate(0.35);
   }
 
   @override
@@ -68,9 +57,7 @@ class _MeditationScreenState extends State<MeditationScreen>
     _timer?.cancel();
     _pulseController.dispose();
     _fadeController.dispose();
-    _flutterTts.stop();
-    _ambientPlayer.dispose();
-    _bellPlayer.dispose();
+    AudioService.instance.stop();
     super.dispose();
   }
 
@@ -84,6 +71,9 @@ class _MeditationScreenState extends State<MeditationScreen>
           : 'Focus on your breath.';
     });
     _fadeController.forward();
+    if (_selectedSound != 'None') {
+      AudioService.instance.play(_selectedSound);
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_secondsRemaining > 0) {
         if (mounted) {
@@ -120,45 +110,75 @@ class _MeditationScreenState extends State<MeditationScreen>
 
   void _finishMeditation() {
     _timer?.cancel();
-    _ambientPlayer.stop();
+    AudioService.instance.stop();
     Vibration.vibrate(duration: 400);
-    DatabaseHelper.instance.insertSession(MeditationSession(
-      type: 'Meditation',
-      method: widget.journey?.name ?? 'Silent Timer',
-      durationSeconds: _selectedMinutes * 60,
-      timestamp: DateTime.now(),
-    ));
-    _showCompletionDialog();
     setState(() => _isActive = false);
+    _showJournalDialog();
   }
 
-  void _showCompletionDialog() {
+  void _showJournalDialog() {
+    final controller = TextEditingController();
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Session Complete'),
-        content: Text('Well done! You meditated for $_selectedMinutes minutes.'),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          title: const Text('Session Complete'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Well done! You meditated for $_selectedMinutes minutes.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'How do you feel? (optional)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
               onPressed: () {
+                DatabaseHelper.instance.insertSession(MeditationSession(
+                  type: 'Meditation',
+                  method: widget.journey?.name ?? 'Silent Timer',
+                  durationSeconds: _selectedMinutes * 60,
+                  timestamp: DateTime.now(),
+                ));
                 Navigator.pop(ctx);
                 Navigator.pop(context);
               },
-              child: const Text('Done'),
+              child: Text('Skip', style: TextStyle(color: cs.onSurface.withAlpha(120))),
             ),
-          ),
-        ],
-      ),
+            ElevatedButton(
+              onPressed: () {
+                final journal = controller.text.trim();
+                DatabaseHelper.instance.insertSession(MeditationSession(
+                  type: 'Meditation',
+                  method: widget.journey?.name ?? 'Silent Timer',
+                  durationSeconds: _selectedMinutes * 60,
+                  timestamp: DateTime.now(),
+                  journal: journal.isEmpty ? null : journal,
+                ));
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _stopMeditation() {
     _timer?.cancel();
-    _flutterTts.stop();
-    _ambientPlayer.stop();
+    AudioService.instance.stop();
     setState(() {
       _isActive = false;
       _currentPrompt = '';
@@ -177,16 +197,30 @@ class _MeditationScreenState extends State<MeditationScreen>
       appBar: AppBar(
         title: Text(widget.journey?.name ?? 'Meditation'),
         actions: [
-          if (!_isActive)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.music_note_rounded),
-              onSelected: (v) => setState(() => _selectedSound = v),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'None', child: Text('No Sound')),
-                PopupMenuItem(value: 'Rain', child: Text('Soft Rain')),
-                PopupMenuItem(value: 'Forest', child: Text('Forest')),
-              ],
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.music_note_rounded,
+              color: _selectedSound != 'None'
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
             ),
+            onSelected: (v) {
+              setState(() => _selectedSound = v);
+              if (_isActive) {
+                if (v != 'None') {
+                  AudioService.instance.play(v);
+                } else {
+                  AudioService.instance.stop();
+                }
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'None', child: Text('No Sound')),
+              ...AudioService.availableSounds.map(
+                (s) => PopupMenuItem(value: s, child: Text(s)),
+              ),
+            ],
+          ),
         ],
       ),
       body: SafeArea(
@@ -369,6 +403,27 @@ class _MeditationScreenState extends State<MeditationScreen>
               ),
             ),
           ),
+
+          // Volume slider
+          if (_selectedSound != 'None')
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: Row(
+                children: [
+                  Icon(Icons.volume_down_rounded, size: 18, color: cs.onSurface.withAlpha(80)),
+                  Expanded(
+                    child: Slider(
+                      value: AudioService.instance.volume,
+                      onChanged: (v) {
+                        AudioService.instance.setVolume(v);
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                  Icon(Icons.volume_up_rounded, size: 18, color: cs.onSurface.withAlpha(80)),
+                ],
+              ),
+            ),
 
           const Spacer(flex: 3),
 

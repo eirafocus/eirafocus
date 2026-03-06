@@ -1,13 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eirafocus/core/theme/theme.dart';
+import 'package:eirafocus/core/data/database_helper.dart';
+import 'package:eirafocus/core/services/notification_service.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  int _weeklyGoal = 0;
+  bool _remindersEnabled = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 9, minute: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final goal = await DatabaseHelper.instance.getWeeklyGoal();
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('reminders_enabled') ?? false;
+    final hour = prefs.getInt('reminder_hour') ?? 9;
+    final minute = prefs.getInt('reminder_minute') ?? 0;
+    if (mounted) {
+      setState(() {
+        _weeklyGoal = goal ?? 0;
+        _remindersEnabled = enabled;
+        _reminderTime = TimeOfDay(hour: hour, minute: minute);
+      });
+    }
+  }
+
+  Future<void> _saveWeeklyGoal(int minutes) async {
+    setState(() => _weeklyGoal = minutes);
+    if (minutes > 0) {
+      await DatabaseHelper.instance.setWeeklyGoal(minutes);
+    }
+  }
+
+  Future<void> _toggleReminders(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('reminders_enabled', enabled);
+    setState(() => _remindersEnabled = enabled);
+    if (enabled) {
+      await NotificationService.instance.scheduleDailyReminder(
+        _reminderTime.hour,
+        _reminderTime.minute,
+      );
+    } else {
+      await NotificationService.instance.cancelAll();
+    }
+  }
+
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _reminderTime,
+    );
+    if (picked != null) {
+      setState(() => _reminderTime = picked);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('reminder_hour', picked.hour);
+      await prefs.setInt('reminder_minute', picked.minute);
+      if (_remindersEnabled) {
+        await NotificationService.instance.scheduleDailyReminder(
+          picked.hour,
+          picked.minute,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final currentMode = ref.watch(themeModeProvider);
 
@@ -25,6 +98,43 @@ class SettingsScreen extends ConsumerWidget {
               ref.read(themeModeProvider.notifier).setMode(mode);
             },
           ),
+
+          const SizedBox(height: 24),
+
+          // Weekly goal
+          _SectionLabel('Weekly Goal'),
+          const SizedBox(height: 10),
+          _GoalSetting(
+            currentGoal: _weeklyGoal,
+            onChanged: _saveWeeklyGoal,
+          ),
+
+          const SizedBox(height: 24),
+
+          // Reminders
+          _SectionLabel('Daily Reminder'),
+          const SizedBox(height: 10),
+          _SettingsTile(
+            icon: Icons.notifications_outlined,
+            title: 'Daily Reminder',
+            subtitle: _remindersEnabled
+                ? 'Every day at ${_reminderTime.format(context)}'
+                : 'Off',
+            trailing: Switch.adaptive(
+              value: _remindersEnabled,
+              onChanged: _toggleReminders,
+              activeTrackColor: cs.primary,
+            ),
+          ),
+          if (_remindersEnabled) ...[
+            const SizedBox(height: 8),
+            _SettingsTile(
+              icon: Icons.schedule_rounded,
+              title: 'Reminder Time',
+              subtitle: _reminderTime.format(context),
+              onTap: _pickReminderTime,
+            ),
+          ],
 
           const SizedBox(height: 24),
 
@@ -118,6 +228,79 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+// ─── Goal Setting ───────────────────────────────────────────────
+class _GoalSetting extends StatelessWidget {
+  final int currentGoal;
+  final ValueChanged<int> onChanged;
+
+  const _GoalSetting({required this.currentGoal, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final presets = [0, 30, 60, 90, 120, 180];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flag_rounded, size: 20, color: cs.primary),
+              const SizedBox(width: 10),
+              Text(
+                currentGoal > 0 ? '$currentGoal min / week' : 'No goal set',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: presets.map((m) {
+              final selected = currentGoal == m;
+              final label = m == 0 ? 'Off' : '${m}m';
+              return GestureDetector(
+                onTap: () => onChanged(m),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: selected ? cs.primary.withAlpha(80) : cs.outline.withAlpha(80),
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? cs.primary : cs.onSurface.withAlpha(120),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Theme picker ───────────────────────────────────────────────
 class _ThemePicker extends StatelessWidget {
   final ThemeMode currentMode;
@@ -195,12 +378,14 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     this.onTap,
+    this.trailing,
   });
 
   @override
@@ -241,7 +426,9 @@ class _SettingsTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (onTap != null)
+            if (trailing != null)
+              trailing!
+            else if (onTap != null)
               Icon(Icons.chevron_right_rounded, size: 20, color: cs.onSurface.withAlpha(60)),
           ],
         ),

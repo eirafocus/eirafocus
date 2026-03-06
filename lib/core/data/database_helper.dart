@@ -20,7 +20,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -39,6 +39,24 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE sessions ADD COLUMN journal TEXT');
+    }
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE favorites (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          method_name TEXT NOT NULL UNIQUE
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE goals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          weekly_minutes INTEGER NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -48,7 +66,8 @@ class DatabaseHelper {
         type TEXT NOT NULL,
         method TEXT NOT NULL,
         duration_seconds INTEGER NOT NULL,
-        timestamp TEXT NOT NULL
+        timestamp TEXT NOT NULL,
+        journal TEXT
       )
     ''');
 
@@ -70,8 +89,24 @@ class DatabaseHelper {
         hold_after_exhale INTEGER NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE favorites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        method_name TEXT NOT NULL UNIQUE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        weekly_minutes INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
   }
 
+  // ─── Custom Methods ──────────────────────────────────────────
   Future<void> insertCustomMethod(Map<String, dynamic> method) async {
     final db = await instance.database;
     await db.insert('custom_methods', method);
@@ -87,6 +122,7 @@ class DatabaseHelper {
     await db.delete('custom_methods', where: 'id = ?', whereArgs: [id]);
   }
 
+  // ─── Sessions ────────────────────────────────────────────────
   Future<void> insertSession(MeditationSession session) async {
     final db = await instance.database;
     await db.insert('sessions', session.toMap());
@@ -99,12 +135,13 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => MeditationSession.fromMap(maps[i]));
   }
 
+  // ─── Streaks ─────────────────────────────────────────────────
   Future<void> _updateStreak(DateTime timestamp) async {
     final db = await instance.database;
     final today = DateTime(timestamp.year, timestamp.month, timestamp.day).toIso8601String().split('T')[0];
-    
+
     final List<Map<String, dynamic>> result = await db.query('streaks', limit: 1);
-    
+
     if (result.isEmpty) {
       await db.insert('streaks', {
         'last_session_date': today,
@@ -113,8 +150,8 @@ class DatabaseHelper {
     } else {
       final lastDate = result.first['last_session_date'] as String;
       final currentStreak = result.first['current_streak'] as int;
-      
-      if (lastDate == today) return; 
+
+      if (lastDate == today) return;
 
       final lastDateTime = DateTime.parse(lastDate);
       final todayDateTime = DateTime.parse(today);
@@ -138,16 +175,68 @@ class DatabaseHelper {
     final db = await instance.database;
     final result = await db.query('streaks', limit: 1);
     if (result.isEmpty) return 0;
-    
+
     final lastDate = result.first['last_session_date'] as String;
     final lastDateTime = DateTime.parse(lastDate);
     final today = DateTime.now();
     final difference = DateTime(today.year, today.month, today.day).difference(lastDateTime).inDays;
-    
+
     if (difference > 1) {
       return 0;
     }
-    
+
     return result.first['current_streak'] as int;
+  }
+
+  // ─── Favorites ───────────────────────────────────────────────
+  Future<void> insertFavorite(String methodName) async {
+    final db = await instance.database;
+    await db.insert('favorites', {'method_name': methodName},
+        conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<void> removeFavorite(String methodName) async {
+    final db = await instance.database;
+    await db.delete('favorites', where: 'method_name = ?', whereArgs: [methodName]);
+  }
+
+  Future<List<String>> getFavorites() async {
+    final db = await instance.database;
+    final results = await db.query('favorites');
+    return results.map((r) => r['method_name'] as String).toList();
+  }
+
+  // ─── Goals ───────────────────────────────────────────────────
+  Future<void> setWeeklyGoal(int minutes) async {
+    final db = await instance.database;
+    await db.delete('goals');
+    await db.insert('goals', {
+      'weekly_minutes': minutes,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<int?> getWeeklyGoal() async {
+    final db = await instance.database;
+    final result = await db.query('goals', limit: 1);
+    if (result.isEmpty) return null;
+    return result.first['weekly_minutes'] as int;
+  }
+
+  Future<int> getWeeklyMinutes() async {
+    final db = await instance.database;
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final weekStartDate = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    final results = await db.query(
+      'sessions',
+      where: 'timestamp >= ?',
+      whereArgs: [weekStartDate.toIso8601String()],
+    );
+    int totalSeconds = 0;
+    for (final r in results) {
+      totalSeconds += r['duration_seconds'] as int;
+    }
+    return totalSeconds ~/ 60;
   }
 }
