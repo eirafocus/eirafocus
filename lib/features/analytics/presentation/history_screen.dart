@@ -22,6 +22,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // Search & filter state
   String _searchQuery = '';
   String _typeFilter = 'All'; // 'All', 'Breathing', 'Meditation'
+  String? _tagFilter;
   DateTimeRange? _dateRange;
 
   @override
@@ -40,6 +41,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  Set<String> get _allTags {
+    final tags = <String>{};
+    for (final s in _allSessions) {
+      tags.addAll(s.tags);
+    }
+    return tags;
+  }
+
   List<MeditationSession> get _filteredSessions {
     return _allSessions.where((s) {
       if (_typeFilter != 'All' && s.type != _typeFilter) return false;
@@ -47,6 +56,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           !s.method.toLowerCase().contains(_searchQuery.toLowerCase())) {
         return false;
       }
+      if (_tagFilter != null && !s.tags.contains(_tagFilter)) return false;
       if (_dateRange != null) {
         final date = DateTime(s.timestamp.year, s.timestamp.month, s.timestamp.day);
         if (date.isBefore(_dateRange!.start) || date.isAfter(_dateRange!.end)) {
@@ -73,12 +83,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return;
     }
     final buf = StringBuffer();
-    buf.writeln('date,type,method,duration_minutes,journal');
+    buf.writeln('date,type,method,duration_minutes,tags,journal');
     for (final s in sessions) {
       final date = DateFormat('yyyy-MM-dd HH:mm').format(s.timestamp);
       final mins = (s.durationSeconds / 60).toStringAsFixed(1);
+      final tags = s.tags.join(';');
       final journal = (s.journal ?? '').replaceAll('"', '""');
-      buf.writeln('$date,${s.type},${s.method},$mins,"$journal"');
+      buf.writeln('$date,${s.type},${s.method},$mins,"$tags","$journal"');
     }
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/eirafocus_sessions.csv');
@@ -192,6 +203,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ],
                   ),
                 ),
+
+                // Tag filter
+                if (_allTags.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 24, right: 24, top: 8),
+                    child: SizedBox(
+                      height: 32,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _FilterChip(
+                            label: 'All Tags',
+                            selected: _tagFilter == null,
+                            onTap: () => setState(() => _tagFilter = null),
+                          ),
+                          ..._allTags.map((tag) => Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: _FilterChip(
+                              label: tag,
+                              selected: _tagFilter == tag,
+                              onTap: () => setState(() => _tagFilter = _tagFilter == tag ? null : tag),
+                            ),
+                          )),
+                        ],
+                      ),
+                    ),
+                  ),
 
                 const SizedBox(height: 8),
 
@@ -321,6 +359,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             ),
+            if (session.tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: session.tags.map((tag) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withAlpha(12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(SessionTag.emojiFor(tag), style: const TextStyle(fontSize: 10)),
+                      const SizedBox(width: 3),
+                      Text(tag, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: cs.primary.withAlpha(180))),
+                    ],
+                  ),
+                )).toList(),
+              ),
+            ],
             if (session.journal != null && session.journal!.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(

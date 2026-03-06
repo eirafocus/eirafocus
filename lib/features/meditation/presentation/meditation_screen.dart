@@ -118,59 +118,99 @@ class _MeditationScreenState extends State<MeditationScreen>
 
   void _showJournalDialog() {
     final controller = TextEditingController();
+    final selectedTags = <String>{};
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          title: const Text('Session Complete'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Well done! You meditated for $_selectedMinutes minutes.'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'How do you feel? (optional)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final cs = Theme.of(ctx).colorScheme;
+            return AlertDialog(
+              title: const Text('Session Complete'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Well done! You meditated for $_selectedMinutes minutes.'),
+                    const SizedBox(height: 16),
+                    Text('Tags', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(90))),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: SessionTag.availableLabels.map((label) {
+                        final selected = selectedTags.contains(label);
+                        return GestureDetector(
+                          onTap: () => setDialogState(() {
+                            selected ? selectedTags.remove(label) : selectedTags.add(label);
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: selected ? cs.primary.withAlpha(20) : cs.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: selected ? cs.primary.withAlpha(80) : cs.outline.withAlpha(80)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(SessionTag.emojiFor(label), style: const TextStyle(fontSize: 13)),
+                                const SizedBox(width: 4),
+                                Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: selected ? cs.primary : cs.onSurface.withAlpha(120))),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'How do you feel? (optional)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                DatabaseHelper.instance.insertSession(MeditationSession(
-                  type: 'Meditation',
-                  method: widget.journey?.name ?? 'Silent Timer',
-                  durationSeconds: _selectedMinutes * 60,
-                  timestamp: DateTime.now(),
-                ));
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-              },
-              child: Text('Skip', style: TextStyle(color: cs.onSurface.withAlpha(120))),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final journal = controller.text.trim();
-                DatabaseHelper.instance.insertSession(MeditationSession(
-                  type: 'Meditation',
-                  method: widget.journey?.name ?? 'Silent Timer',
-                  durationSeconds: _selectedMinutes * 60,
-                  timestamp: DateTime.now(),
-                  journal: journal.isEmpty ? null : journal,
-                ));
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-              },
-              child: const Text('Save'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    DatabaseHelper.instance.insertSession(MeditationSession(
+                      type: 'Meditation',
+                      method: widget.journey?.name ?? 'Silent Timer',
+                      durationSeconds: _selectedMinutes * 60,
+                      timestamp: DateTime.now(),
+                      tags: selectedTags.toList(),
+                    ));
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: Text('Skip', style: TextStyle(color: cs.onSurface.withAlpha(120))),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final journal = controller.text.trim();
+                    DatabaseHelper.instance.insertSession(MeditationSession(
+                      type: 'Meditation',
+                      method: widget.journey?.name ?? 'Silent Timer',
+                      durationSeconds: _selectedMinutes * 60,
+                      timestamp: DateTime.now(),
+                      journal: journal.isEmpty ? null : journal,
+                      tags: selectedTags.toList(),
+                    ));
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

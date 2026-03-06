@@ -158,6 +158,101 @@ class _BreathingScreenState extends State<BreathingScreen> {
     );
   }
 
+  void _showDurationPicker(BuildContext context, BreathingMethod method) {
+    final cs = Theme.of(context).colorScheme;
+    int? selectedMinutes;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withAlpha(40),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(method.name,
+                      style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text('Set a target duration',
+                      style: GoogleFonts.inter(fontSize: 13, color: cs.onSurface.withAlpha(100))),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [null, 3, 5, 10, 15, 20, 30].map((m) {
+                      final selected = selectedMinutes == m;
+                      final label = m == null ? 'Free' : '$m min';
+                      return GestureDetector(
+                        onTap: () => setSheetState(() => selectedMinutes = m),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: selected ? cs.primary.withAlpha(20) : cs.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selected ? cs.primary.withAlpha(100) : cs.outline.withAlpha(80),
+                            ),
+                          ),
+                          child: Text(
+                            label,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: selected ? cs.primary : cs.onSurface.withAlpha(150),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.of(context).push(
+                          EiraTheme.smoothRoute(BreathingSessionScreen(
+                            method: method,
+                            targetMinutes: selectedMinutes,
+                          )),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: EiraTheme.breathingColor,
+                      ),
+                      child: Text(
+                        selectedMinutes != null ? 'Start  ·  $selectedMinutes min' : 'Start  ·  Free',
+                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildBreathHoldCard(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
@@ -229,9 +324,7 @@ class _BreathingScreenState extends State<BreathingScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
-        onTap: () => Navigator.of(context).push(
-          EiraTheme.smoothRoute(BreathingSessionScreen(method: method)),
-        ),
+        onTap: () => _showDurationPicker(context, method),
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
@@ -306,9 +399,7 @@ class _BreathingScreenState extends State<BreathingScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
-        onTap: () => Navigator.of(context).push(
-          EiraTheme.smoothRoute(BreathingSessionScreen(method: method)),
-        ),
+        onTap: () => _showDurationPicker(context, method),
         child: Container(
           padding: const EdgeInsets.fromLTRB(18, 14, 8, 14),
           decoration: BoxDecoration(

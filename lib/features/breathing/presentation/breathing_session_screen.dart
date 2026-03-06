@@ -9,7 +9,8 @@ import 'package:eirafocus/core/services/audio_service.dart';
 
 class BreathingSessionScreen extends StatefulWidget {
   final BreathingMethod method;
-  const BreathingSessionScreen({super.key, required this.method});
+  final int? targetMinutes;
+  const BreathingSessionScreen({super.key, required this.method, this.targetMinutes});
 
   @override
   State<BreathingSessionScreen> createState() => _BreathingSessionScreenState();
@@ -23,12 +24,14 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
 
   Timer? _timer;
   Timer? _hapticTimer;
+  Timer? _elapsedTimer;
   int _currentCycle = 0;
   BreathingStage _currentStage = BreathingStage.inhale;
   String _instructionText = 'Get Ready';
   bool _isPaused = false;
   DateTime _startTime = DateTime.now();
   int _stageSecondsLeft = 0;
+  int _totalElapsedSeconds = 0;
   String _selectedSound = 'None';
   bool _hapticEnabled = true;
 
@@ -48,7 +51,28 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
       duration: const Duration(milliseconds: 600),
     );
     _fadeController.forward();
+    _startElapsedTimer();
     _startSession();
+  }
+
+  void _startElapsedTimer() {
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_isPaused || !mounted) return;
+      setState(() => _totalElapsedSeconds++);
+      if (widget.targetMinutes != null && _totalElapsedSeconds >= widget.targetMinutes! * 60) {
+        _finishSession();
+      }
+    });
+  }
+
+  void _finishSession() {
+    _timer?.cancel();
+    _hapticTimer?.cancel();
+    _elapsedTimer?.cancel();
+    _breathController.stop();
+    AudioService.instance.stop();
+    Vibration.vibrate(duration: 400);
+    _showJournalDialog(_totalElapsedSeconds);
   }
 
   void _vibrate({int duration = 40}) async {
@@ -56,6 +80,12 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
     if (await Vibration.hasVibrator() == true) {
       Vibration.vibrate(duration: duration);
     }
+  }
+
+  String _formatElapsed(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   void _startRhythmicHaptics(BreathingStage stage, int totalSeconds) {
@@ -218,11 +248,11 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
   void _stopAndSave() {
     _timer?.cancel();
     _hapticTimer?.cancel();
+    _elapsedTimer?.cancel();
     _breathController.stop();
     AudioService.instance.stop();
-    final duration = DateTime.now().difference(_startTime).inSeconds;
-    if (duration > 10) {
-      _showJournalDialog(duration);
+    if (_totalElapsedSeconds > 10) {
+      _showJournalDialog(_totalElapsedSeconds);
     } else {
       Navigator.of(context).pop();
     }
@@ -230,59 +260,99 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
 
   void _showJournalDialog(int duration) {
     final controller = TextEditingController();
+    final selectedTags = <String>{};
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          title: const Text('Session Complete'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Great job! ${duration ~/ 60}m ${duration % 60}s of breathing.'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'How do you feel? (optional)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final cs = Theme.of(ctx).colorScheme;
+            return AlertDialog(
+              title: const Text('Session Complete'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Great job! ${duration ~/ 60}m ${duration % 60}s of breathing.'),
+                    const SizedBox(height: 16),
+                    Text('Tags', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(90))),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: SessionTag.availableLabels.map((label) {
+                        final selected = selectedTags.contains(label);
+                        return GestureDetector(
+                          onTap: () => setDialogState(() {
+                            selected ? selectedTags.remove(label) : selectedTags.add(label);
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: selected ? cs.primary.withAlpha(20) : cs.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: selected ? cs.primary.withAlpha(80) : cs.outline.withAlpha(80)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(SessionTag.emojiFor(label), style: const TextStyle(fontSize: 13)),
+                                const SizedBox(width: 4),
+                                Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: selected ? cs.primary : cs.onSurface.withAlpha(120))),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'How do you feel? (optional)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                DatabaseHelper.instance.insertSession(MeditationSession(
-                  type: 'Breathing',
-                  method: widget.method.name,
-                  durationSeconds: duration,
-                  timestamp: DateTime.now(),
-                ));
-                Navigator.pop(ctx);
-                Navigator.of(context).pop();
-              },
-              child: Text('Skip', style: TextStyle(color: cs.onSurface.withAlpha(120))),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final journal = controller.text.trim();
-                DatabaseHelper.instance.insertSession(MeditationSession(
-                  type: 'Breathing',
-                  method: widget.method.name,
-                  durationSeconds: duration,
-                  timestamp: DateTime.now(),
-                  journal: journal.isEmpty ? null : journal,
-                ));
-                Navigator.pop(ctx);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    DatabaseHelper.instance.insertSession(MeditationSession(
+                      type: 'Breathing',
+                      method: widget.method.name,
+                      durationSeconds: duration,
+                      timestamp: DateTime.now(),
+                      tags: selectedTags.toList(),
+                    ));
+                    Navigator.pop(ctx);
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('Skip', style: TextStyle(color: cs.onSurface.withAlpha(120))),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final journal = controller.text.trim();
+                    DatabaseHelper.instance.insertSession(MeditationSession(
+                      type: 'Breathing',
+                      method: widget.method.name,
+                      durationSeconds: duration,
+                      timestamp: DateTime.now(),
+                      journal: journal.isEmpty ? null : journal,
+                      tags: selectedTags.toList(),
+                    ));
+                    Navigator.pop(ctx);
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -292,6 +362,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
   void dispose() {
     _timer?.cancel();
     _hapticTimer?.cancel();
+    _elapsedTimer?.cancel();
     _breathController.dispose();
     _fadeController.dispose();
     AudioService.instance.stop();
@@ -349,7 +420,26 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
         child: Column(
           children: [
             const SizedBox(height: 16),
-            // Cycle count
+            // Elapsed time & cycle count
+            if (widget.targetMinutes != null)
+              Text(
+                '${_formatElapsed(_totalElapsedSeconds)} / ${widget.targetMinutes} min',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.primary,
+                ),
+              )
+            else
+              Text(
+                _formatElapsed(_totalElapsedSeconds),
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface.withAlpha(120),
+                ),
+              ),
+            const SizedBox(height: 4),
             Text(
               'CYCLE ${_currentCycle + 1}',
               style: GoogleFonts.inter(

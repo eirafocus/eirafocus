@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -77,6 +77,9 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE sessions ADD COLUMN tags TEXT');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -87,7 +90,8 @@ class DatabaseHelper {
         method TEXT NOT NULL,
         duration_seconds INTEGER NOT NULL,
         timestamp TEXT NOT NULL,
-        journal TEXT
+        journal TEXT,
+        tags TEXT
       )
     ''');
 
