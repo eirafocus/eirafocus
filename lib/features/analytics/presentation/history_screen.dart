@@ -359,6 +359,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             ),
+            if (session.moodBefore != null || session.moodAfter != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (session.moodBefore != null) ...[
+                    Text('Before: ${MoodData.moods[session.moodBefore! - 1]}',
+                        style: GoogleFonts.inter(fontSize: 11, color: cs.onSurface.withAlpha(100))),
+                  ],
+                  if (session.moodBefore != null && session.moodAfter != null)
+                    Text('  →  ', style: GoogleFonts.inter(fontSize: 11, color: cs.onSurface.withAlpha(60))),
+                  if (session.moodAfter != null) ...[
+                    Text('After: ${MoodData.moods[session.moodAfter! - 1]}',
+                        style: GoogleFonts.inter(fontSize: 11, color: cs.onSurface.withAlpha(100))),
+                  ],
+                ],
+              ),
+            ],
             if (session.tags.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(

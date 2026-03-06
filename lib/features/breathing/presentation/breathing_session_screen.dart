@@ -10,7 +10,8 @@ import 'package:eirafocus/core/services/audio_service.dart';
 class BreathingSessionScreen extends StatefulWidget {
   final BreathingMethod method;
   final int? targetMinutes;
-  const BreathingSessionScreen({super.key, required this.method, this.targetMinutes});
+  final int? moodBefore;
+  const BreathingSessionScreen({super.key, required this.method, this.targetMinutes, this.moodBefore});
 
   @override
   State<BreathingSessionScreen> createState() => _BreathingSessionScreenState();
@@ -261,6 +262,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
   void _showJournalDialog(int duration) {
     final controller = TextEditingController();
     final selectedTags = <String>{};
+    int? moodAfter;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -276,6 +278,34 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Great job! ${duration ~/ 60}m ${duration % 60}s of breathing.'),
+                    const SizedBox(height: 16),
+                    Text('How do you feel now?', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(90))),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(5, (i) {
+                        final selected = moodAfter == i + 1;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => moodAfter = i + 1),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                  border: selected ? Border.all(color: cs.primary.withAlpha(80), width: 2) : null,
+                                ),
+                                child: Center(child: Text(MoodData.moods[i], style: TextStyle(fontSize: selected ? 22 : 18))),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(MoodData.labels[i], style: GoogleFonts.inter(fontSize: 9, color: selected ? cs.primary : cs.onSurface.withAlpha(80))),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
                     const SizedBox(height: 16),
                     Text('Tags', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(90))),
                     const SizedBox(height: 8),
@@ -312,7 +342,7 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
                       controller: controller,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'How do you feel? (optional)',
+                        hintText: 'Any thoughts? (optional)',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
@@ -328,6 +358,8 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
                       durationSeconds: duration,
                       timestamp: DateTime.now(),
                       tags: selectedTags.toList(),
+                      moodBefore: widget.moodBefore,
+                      moodAfter: moodAfter,
                     ));
                     Navigator.pop(ctx);
                     Navigator.of(context).pop();
@@ -344,6 +376,8 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
                       timestamp: DateTime.now(),
                       journal: journal.isEmpty ? null : journal,
                       tags: selectedTags.toList(),
+                      moodBefore: widget.moodBefore,
+                      moodAfter: moodAfter,
                     ));
                     Navigator.pop(ctx);
                     Navigator.of(context).pop();

@@ -6,6 +6,7 @@ import 'package:eirafocus/features/breathing/presentation/breathing_session_scre
 import 'package:eirafocus/features/breathing/presentation/breath_hold_test_screen.dart';
 import 'package:eirafocus/features/breathing/presentation/custom_breathing_screen.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
+import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 
 class BreathingScreen extends StatefulWidget {
   const BreathingScreen({super.key});
@@ -161,6 +162,7 @@ class _BreathingScreenState extends State<BreathingScreen> {
   void _showDurationPicker(BuildContext context, BreathingMethod method) {
     final cs = Theme.of(context).colorScheme;
     int? selectedMinutes;
+    int? moodBefore;
 
     showModalBottomSheet(
       context: context,
@@ -186,10 +188,39 @@ class _BreathingScreenState extends State<BreathingScreen> {
                   const SizedBox(height: 20),
                   Text(method.name,
                       style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 16),
+                  Text('How are you feeling?',
+                      style: GoogleFonts.inter(fontSize: 13, color: cs.onSurface.withAlpha(100))),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: List.generate(5, (i) {
+                      final selected = moodBefore == i + 1;
+                      return GestureDetector(
+                        onTap: () => setSheetState(() => moodBefore = i + 1),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                                shape: BoxShape.circle,
+                                border: selected ? Border.all(color: cs.primary.withAlpha(80), width: 2) : null,
+                              ),
+                              child: Center(child: Text(MoodData.moods[i], style: TextStyle(fontSize: selected ? 24 : 20))),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(MoodData.labels[i], style: GoogleFonts.inter(fontSize: 10, color: selected ? cs.primary : cs.onSurface.withAlpha(80))),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 20),
                   Text('Set a target duration',
                       style: GoogleFonts.inter(fontSize: 13, color: cs.onSurface.withAlpha(100))),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -232,6 +263,7 @@ class _BreathingScreenState extends State<BreathingScreen> {
                           EiraTheme.smoothRoute(BreathingSessionScreen(
                             method: method,
                             targetMinutes: selectedMinutes,
+                            moodBefore: moodBefore,
                           )),
                         );
                       },

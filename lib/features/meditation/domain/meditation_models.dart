@@ -49,6 +49,11 @@ class SessionTag {
   }
 }
 
+class MoodData {
+  static const moods = ['😫', '😟', '😐', '🙂', '😊'];
+  static const labels = ['Awful', 'Bad', 'Okay', 'Good', 'Great'];
+}
+
 class MeditationSession {
   final int? id;
   final String type; // 'Breathing' or 'Meditation'
@@ -57,6 +62,8 @@ class MeditationSession {
   final DateTime timestamp;
   final String? journal;
   final List<String> tags;
+  final int? moodBefore; // 1-5
+  final int? moodAfter;  // 1-5
 
   const MeditationSession({
     this.id,
@@ -66,6 +73,8 @@ class MeditationSession {
     required this.timestamp,
     this.journal,
     this.tags = const [],
+    this.moodBefore,
+    this.moodAfter,
   });
 
   Map<String, dynamic> toMap() {
@@ -76,6 +85,8 @@ class MeditationSession {
       'timestamp': timestamp.toIso8601String(),
       if (journal != null) 'journal': journal,
       if (tags.isNotEmpty) 'tags': tags.join(','),
+      if (moodBefore != null) 'mood_before': moodBefore,
+      if (moodAfter != null) 'mood_after': moodAfter,
     };
   }
 
@@ -89,6 +100,8 @@ class MeditationSession {
       timestamp: DateTime.parse(map['timestamp']),
       journal: map['journal'] as String?,
       tags: tagsStr != null && tagsStr.isNotEmpty ? tagsStr.split(',') : [],
+      moodBefore: map['mood_before'] as int?,
+      moodAfter: map['mood_after'] as int?,
     );
   }
 }

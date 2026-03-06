@@ -27,6 +27,7 @@ class _MeditationScreenState extends State<MeditationScreen>
   int _elapsedSeconds = 0;
 
   String _selectedSound = 'None';
+  int? _moodBefore;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
@@ -119,6 +120,7 @@ class _MeditationScreenState extends State<MeditationScreen>
   void _showJournalDialog() {
     final controller = TextEditingController();
     final selectedTags = <String>{};
+    int? moodAfter;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -134,6 +136,34 @@ class _MeditationScreenState extends State<MeditationScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Well done! You meditated for $_selectedMinutes minutes.'),
+                    const SizedBox(height: 16),
+                    Text('How do you feel now?', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(90))),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(5, (i) {
+                        final selected = moodAfter == i + 1;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => moodAfter = i + 1),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                  border: selected ? Border.all(color: cs.primary.withAlpha(80), width: 2) : null,
+                                ),
+                                child: Center(child: Text(MoodData.moods[i], style: TextStyle(fontSize: selected ? 22 : 18))),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(MoodData.labels[i], style: GoogleFonts.inter(fontSize: 9, color: selected ? cs.primary : cs.onSurface.withAlpha(80))),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
                     const SizedBox(height: 16),
                     Text('Tags', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(90))),
                     const SizedBox(height: 8),
@@ -170,7 +200,7 @@ class _MeditationScreenState extends State<MeditationScreen>
                       controller: controller,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'How do you feel? (optional)',
+                        hintText: 'Any thoughts? (optional)',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
@@ -186,6 +216,8 @@ class _MeditationScreenState extends State<MeditationScreen>
                       durationSeconds: _selectedMinutes * 60,
                       timestamp: DateTime.now(),
                       tags: selectedTags.toList(),
+                      moodBefore: _moodBefore,
+                      moodAfter: moodAfter,
                     ));
                     Navigator.pop(ctx);
                     Navigator.pop(context);
@@ -202,6 +234,8 @@ class _MeditationScreenState extends State<MeditationScreen>
                       timestamp: DateTime.now(),
                       journal: journal.isEmpty ? null : journal,
                       tags: selectedTags.toList(),
+                      moodBefore: _moodBefore,
+                      moodAfter: moodAfter,
                     ));
                     Navigator.pop(ctx);
                     Navigator.pop(context);
@@ -334,6 +368,36 @@ class _MeditationScreenState extends State<MeditationScreen>
             ),
           ),
         ],
+
+        const SizedBox(height: 20),
+        Text('How are you feeling?',
+            style: GoogleFonts.inter(fontSize: 13, color: cs.onSurface.withAlpha(100))),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(5, (i) {
+            final selected = _moodBefore == i + 1;
+            return GestureDetector(
+              onTap: () => setState(() => _moodBefore = i + 1),
+              child: Column(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: selected ? Border.all(color: cs.primary.withAlpha(80), width: 2) : null,
+                    ),
+                    child: Center(child: Text(MoodData.moods[i], style: TextStyle(fontSize: selected ? 24 : 20))),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(MoodData.labels[i], style: GoogleFonts.inter(fontSize: 10, color: selected ? cs.primary : cs.onSurface.withAlpha(80))),
+                ],
+              ),
+            );
+          }),
+        ),
 
         const Spacer(),
 

@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -94,6 +94,10 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 8) {
+      await db.execute('ALTER TABLE sessions ADD COLUMN mood_before INTEGER');
+      await db.execute('ALTER TABLE sessions ADD COLUMN mood_after INTEGER');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -105,7 +109,9 @@ class DatabaseHelper {
         duration_seconds INTEGER NOT NULL,
         timestamp TEXT NOT NULL,
         journal TEXT,
-        tags TEXT
+        tags TEXT,
+        mood_before INTEGER,
+        mood_after INTEGER
       )
     ''');
 
