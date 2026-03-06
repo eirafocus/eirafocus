@@ -1,5 +1,10 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class MilestoneDialog {
   static const List<int> milestones = [3, 7, 14, 30, 60, 100];
@@ -28,6 +33,8 @@ class MilestoneDialog {
   }
 
   static void show(BuildContext context, int days) {
+    final badgeKey = GlobalKey();
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -36,54 +43,116 @@ class MilestoneDialog {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF7043).withAlpha(20),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _iconForMilestone(days),
-                  size: 40,
-                  color: const Color(0xFFFF7043),
+              RepaintBoundary(
+                key: badgeKey,
+                child: Container(
+                  color: cs.surface,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF7043).withAlpha(20),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _iconForMilestone(days),
+                          size: 40,
+                          color: const Color(0xFFFF7043),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        '$days Day Streak!',
+                        style: GoogleFonts.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _messageForMilestone(days),
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: cs.onSurface.withAlpha(140),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'EiraFocus',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface.withAlpha(60),
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                '$days Day Streak!',
-                style: GoogleFonts.inter(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _messageForMilestone(days),
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: cs.onSurface.withAlpha(140),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 8),
             ],
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           actions: [
             SizedBox(
               width: double.infinity,
+              height: 40,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 0),
+                  textStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
                 child: const Text('Awesome!'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: OutlinedButton.icon(
+                onPressed: () => _shareBadge(badgeKey, days),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 0),
+                  textStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                icon: const Icon(Icons.share_rounded, size: 15),
+                label: const Text('Share Badge'),
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  static Future<void> _shareBadge(GlobalKey key, int days) async {
+    try {
+      final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/eirafocus_streak_$days.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'I just hit a $days day streak on EiraFocus! 🧘',
+      );
+    } catch (_) {
+      // Silently fail if sharing not available
+    }
   }
 
   static List<int> getAchievedMilestones(int currentStreak) {

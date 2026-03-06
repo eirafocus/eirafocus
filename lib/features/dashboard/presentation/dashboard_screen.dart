@@ -181,6 +181,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ],
 
+
               const SizedBox(height: 28),
 
               // Main action cards
@@ -340,19 +341,22 @@ class _MilestoneBadges extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: achieved.map((m) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF7043).withAlpha(15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFF7043).withAlpha(40)),
-                  ),
-                  child: Text(
-                    '${m}d',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFFFF7043),
+                return GestureDetector(
+                  onTap: () => MilestoneDialog.show(context, m),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF7043).withAlpha(15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFF7043).withAlpha(40)),
+                    ),
+                    child: Text(
+                      '${m}d',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFFF7043),
+                      ),
                     ),
                   ),
                 );
