@@ -99,6 +99,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
           const SizedBox(height: 28),
 
+          // Personal records
+          Text('Personal Records', style: tt.headlineMedium),
+          const SizedBox(height: 6),
+          Text('Your all-time bests', style: tt.bodySmall),
+          const SizedBox(height: 14),
+          _PersonalRecords(sessions: sessions),
+
+          const SizedBox(height: 28),
+
           // Focus split
           Text('Focus Split', style: tt.headlineMedium),
           const SizedBox(height: 14),
@@ -267,6 +276,199 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Personal Records ───────────────────────────────────────────
+class _PersonalRecords extends StatelessWidget {
+  final List<MeditationSession> sessions;
+
+  const _PersonalRecords({required this.sessions});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Longest session
+    int longestSecs = 0;
+    String longestMethod = '';
+    for (final s in sessions) {
+      if (s.durationSeconds > longestSecs) {
+        longestSecs = s.durationSeconds;
+        longestMethod = s.method;
+      }
+    }
+
+    // Best streak
+    final dates = sessions.map((s) => DateTime(s.timestamp.year, s.timestamp.month, s.timestamp.day)).toSet().toList()..sort();
+    int bestStreak = 0;
+    int currentStreak = 0;
+    for (int i = 0; i < dates.length; i++) {
+      if (i == 0) {
+        currentStreak = 1;
+      } else {
+        final diff = dates[i].difference(dates[i - 1]).inDays;
+        if (diff == 1) {
+          currentStreak++;
+        } else {
+          currentStreak = 1;
+        }
+      }
+      if (currentStreak > bestStreak) bestStreak = currentStreak;
+    }
+
+    // Best week (most minutes in any Mon-Sun week)
+    int bestWeekMins = 0;
+    if (sessions.isNotEmpty) {
+      final Map<String, double> weeklyMins = {};
+      for (final s in sessions) {
+        // Get Monday of that week
+        final d = s.timestamp;
+        final monday = d.subtract(Duration(days: d.weekday - 1));
+        final key = DateFormat('yyyy-MM-dd').format(monday);
+        weeklyMins[key] = (weeklyMins[key] ?? 0) + s.durationSeconds / 60;
+      }
+      for (final v in weeklyMins.values) {
+        if (v.round() > bestWeekMins) bestWeekMins = v.round();
+      }
+    }
+
+    // Total days practiced
+    final totalDays = dates.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _RecordTile(
+                  icon: Icons.timer_rounded,
+                  label: 'Longest Session',
+                  value: _formatDuration(longestSecs),
+                  detail: longestMethod,
+                  color: EiraTheme.meditationColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _RecordTile(
+                  icon: Icons.local_fire_department_rounded,
+                  label: 'Best Streak',
+                  value: '$bestStreak day${bestStreak == 1 ? '' : 's'}',
+                  detail: '',
+                  color: const Color(0xFFFF7043),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _RecordTile(
+                  icon: Icons.emoji_events_rounded,
+                  label: 'Best Week',
+                  value: '$bestWeekMins min',
+                  detail: '',
+                  color: EiraTheme.statsColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _RecordTile(
+                  icon: Icons.calendar_month_rounded,
+                  label: 'Days Practiced',
+                  value: '$totalDays',
+                  detail: '',
+                  color: EiraTheme.breathingColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(int secs) {
+    if (secs == 0) return '0s';
+    final h = secs ~/ 3600;
+    final m = (secs % 3600) ~/ 60;
+    final s = secs % 60;
+    if (h > 0) return '${h}h ${m}m';
+    if (m > 0) return '${m}m ${s}s';
+    return '${s}s';
+  }
+}
+
+class _RecordTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+  final Color color;
+
+  const _RecordTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withAlpha(8),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: cs.onSurface.withAlpha(100),
+            ),
+          ),
+          if (detail.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              detail,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                color: color.withAlpha(180),
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );
