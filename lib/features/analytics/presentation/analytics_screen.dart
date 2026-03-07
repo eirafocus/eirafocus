@@ -170,6 +170,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
           const SizedBox(height: 28),
 
+          // Best times
+          Text('Best Times', style: tt.headlineMedium),
+          const SizedBox(height: 6),
+          Text('When you practice most', style: tt.bodySmall),
+          const SizedBox(height: 14),
+          _BestTimesChart(sessions: sessions),
+
+          const SizedBox(height: 28),
+
           // Method breakdown
           Text('Methods', style: tt.headlineMedium),
           const SizedBox(height: 14),
@@ -252,6 +261,159 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         ],
       ),
     );
+  }
+}
+
+// ─── Best Times Chart ───────────────────────────────────────────
+class _BestTimesChart extends StatelessWidget {
+  final List<MeditationSession> sessions;
+
+  const _BestTimesChart({required this.sessions});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Group sessions by hour
+    final hourCounts = List.filled(24, 0);
+    for (final s in sessions) {
+      hourCounts[s.timestamp.hour]++;
+    }
+
+    final maxCount = hourCounts.fold<int>(0, (m, c) => c > m ? c : m);
+    final peakHour = hourCounts.indexOf(maxCount);
+
+    // Group into time blocks for display
+    final blocks = [
+      ('Early\nMorning', 5, 8),
+      ('Morning', 8, 12),
+      ('Afternoon', 12, 17),
+      ('Evening', 17, 21),
+      ('Night', 21, 24),
+    ];
+
+    // Find which block has most sessions
+    int bestBlockIdx = 0;
+    int bestBlockCount = 0;
+    for (int b = 0; b < blocks.length; b++) {
+      int count = 0;
+      for (int h = blocks[b].$2; h < blocks[b].$3; h++) {
+        count += hourCounts[h];
+      }
+      if (count > bestBlockCount) {
+        bestBlockCount = count;
+        bestBlockIdx = b;
+      }
+    }
+
+    String peakLabel;
+    if (peakHour < 5) {
+      peakLabel = 'Late night';
+    } else if (peakHour < 8) {
+      peakLabel = 'Early morning';
+    } else if (peakHour < 12) {
+      peakLabel = 'Morning';
+    } else if (peakHour < 17) {
+      peakLabel = 'Afternoon';
+    } else if (peakHour < 21) {
+      peakLabel = 'Evening';
+    } else {
+      peakLabel = 'Night';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (maxCount > 0) ...[
+            Row(
+              children: [
+                Icon(Icons.schedule_rounded, size: 16, color: cs.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'Peak: $peakLabel (${_formatHour(peakHour)})',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          SizedBox(
+            height: 120,
+            child: BarChart(
+              BarChartData(
+                gridData: FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: (v, _) {
+                        final idx = v.toInt();
+                        if (idx < 0 || idx >= blocks.length) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            blocks[idx].$1,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 9,
+                              color: idx == bestBlockIdx ? cs.primary : cs.onSurface.withAlpha(80),
+                              fontWeight: idx == bestBlockIdx ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                maxY: bestBlockCount > 0 ? bestBlockCount * 1.3 : 3,
+                barGroups: List.generate(blocks.length, (b) {
+                  int count = 0;
+                  for (int h = blocks[b].$2; h < blocks[b].$3; h++) {
+                    count += hourCounts[h];
+                  }
+                  return BarChartGroupData(
+                    x: b,
+                    barRods: [
+                      BarChartRodData(
+                        toY: count.toDouble(),
+                        color: b == bestBlockIdx
+                            ? cs.primary
+                            : cs.primary.withAlpha(60),
+                        width: 32,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatHour(int hour) {
+    if (hour == 0) return '12 AM';
+    if (hour < 12) return '$hour AM';
+    if (hour == 12) return '12 PM';
+    return '${hour - 12} PM';
   }
 }
 
