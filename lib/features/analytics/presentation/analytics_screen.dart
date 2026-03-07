@@ -170,6 +170,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
           const SizedBox(height: 28),
 
+          // Heatmap calendar
+          Text('Practice Calendar', style: tt.headlineMedium),
+          const SizedBox(height: 6),
+          Text('Your practice activity', style: tt.bodySmall),
+          const SizedBox(height: 14),
+          _HeatmapCalendar(sessions: sessions),
+
+          const SizedBox(height: 28),
+
           // Best times
           Text('Best Times', style: tt.headlineMedium),
           const SizedBox(height: 6),
@@ -257,6 +266,235 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 }),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Heatmap Calendar ───────────────────────────────────────────
+class _HeatmapCalendar extends StatefulWidget {
+  final List<MeditationSession> sessions;
+
+  const _HeatmapCalendar({required this.sessions});
+
+  @override
+  State<_HeatmapCalendar> createState() => _HeatmapCalendarState();
+}
+
+class _HeatmapCalendarState extends State<_HeatmapCalendar> {
+  String? _selectedKey; // yyyy-MM-dd of tapped cell
+
+  @override
+  Widget build(BuildContext context) {
+    final sessions = widget.sessions;
+    final cs = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Build daily minutes map for last 16 weeks (112 days)
+    const totalDays = 112;
+    final startDate = today.subtract(const Duration(days: totalDays - 1));
+    final Map<String, double> dailyMinutes = {};
+    for (final s in sessions) {
+      final key = DateFormat('yyyy-MM-dd').format(s.timestamp);
+      dailyMinutes[key] = (dailyMinutes[key] ?? 0) + s.durationSeconds / 60;
+    }
+
+    // Find max for color scaling
+    double maxMin = 0;
+    for (int i = 0; i < totalDays; i++) {
+      final d = startDate.add(Duration(days: i));
+      final key = DateFormat('yyyy-MM-dd').format(d);
+      final v = dailyMinutes[key] ?? 0;
+      if (v > maxMin) maxMin = v;
+    }
+    if (maxMin == 0) maxMin = 1;
+
+    // Build grid: 7 rows (Mon-Sun) x 16 columns (weeks)
+    // Adjust start to beginning of week (Monday)
+    final startWeekday = startDate.weekday; // 1=Mon, 7=Sun
+    final gridStart = startDate.subtract(Duration(days: startWeekday - 1));
+    final endDate = today;
+
+    // Calculate number of weeks
+    final totalWeeks = ((endDate.difference(gridStart).inDays) ~/ 7) + 1;
+
+    // Month labels
+    final monthLabels = <int, String>{};
+    for (int w = 0; w < totalWeeks; w++) {
+      final weekStart = gridStart.add(Duration(days: w * 7));
+      if (w == 0 || weekStart.month != gridStart.add(Duration(days: (w - 1) * 7)).month) {
+        monthLabels[w] = DateFormat('MMM').format(weekStart);
+      }
+    }
+
+    const cellSize = 14.0;
+    const cellGap = 3.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Month labels row
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: SizedBox(
+              height: 16,
+              child: Row(
+                children: List.generate(totalWeeks, (w) {
+                  return SizedBox(
+                    width: cellSize + cellGap,
+                    child: monthLabels.containsKey(w)
+                        ? Text(
+                            monthLabels[w]!,
+                            style: GoogleFonts.inter(
+                              fontSize: 9,
+                              color: cs.onSurface.withAlpha(80),
+                            ),
+                          )
+                        : const SizedBox(),
+                  );
+                }),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Grid
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Day labels
+              Column(
+                children: ['M', '', 'W', '', 'F', '', 'S'].map((label) {
+                  return SizedBox(
+                    height: cellSize + cellGap,
+                    width: 24,
+                    child: label.isNotEmpty
+                        ? Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: Text(
+                                label,
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  color: cs.onSurface.withAlpha(80),
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+                  );
+                }).toList(),
+              ),
+              // Heatmap grid
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Row(
+                    children: List.generate(totalWeeks, (w) {
+                      return Column(
+                        children: List.generate(7, (d) {
+                          final date = gridStart.add(Duration(days: w * 7 + d));
+                          if (date.isAfter(today) || date.isBefore(startDate.subtract(const Duration(days: 7)))) {
+                            return SizedBox(
+                              width: cellSize + cellGap,
+                              height: cellSize + cellGap,
+                            );
+                          }
+                          final key = DateFormat('yyyy-MM-dd').format(date);
+                          final mins = dailyMinutes[key] ?? 0;
+                          final intensity = mins > 0 ? (mins / maxMin).clamp(0.15, 1.0) : 0.0;
+
+                          final isSelected = _selectedKey == key;
+                          return GestureDetector(
+                            onTap: () => setState(() => _selectedKey = isSelected ? null : key),
+                            child: Padding(
+                              padding: const EdgeInsets.all(cellGap / 2),
+                              child: Container(
+                                width: cellSize,
+                                height: cellSize,
+                                decoration: BoxDecoration(
+                                  color: mins > 0
+                                      ? cs.primary.withAlpha((intensity * 220 + 35).toInt())
+                                      : cs.onSurface.withAlpha(15),
+                                  borderRadius: BorderRadius.circular(3),
+                                  border: isSelected
+                                      ? Border.all(color: cs.onSurface, width: 1.5)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Selected cell info
+          if (_selectedKey != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: cs.primary.withAlpha(15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.calendar_today_rounded, size: 13, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${DateFormat('MMM d, yyyy').format(DateTime.parse(_selectedKey!))}  ·  ${(dailyMinutes[_selectedKey!] ?? 0).round()} min',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Less', style: GoogleFonts.inter(fontSize: 9, color: cs.onSurface.withAlpha(80))),
+              const SizedBox(width: 4),
+              ...List.generate(5, (i) {
+                final alpha = i == 0 ? 15 : (55 + i * 45).clamp(0, 255);
+                return Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: i == 0
+                          ? cs.onSurface.withAlpha(15)
+                          : cs.primary.withAlpha(alpha),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(width: 4),
+              Text('More', style: GoogleFonts.inter(fontSize: 9, color: cs.onSurface.withAlpha(80))),
+            ],
           ),
         ],
       ),
