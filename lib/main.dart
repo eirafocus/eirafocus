@@ -26,6 +26,8 @@ class EiraFocusApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final accentIndex = ref.watch(accentColorProvider);
+    EiraTheme.setAccent(accentIndex);
 
     return MaterialApp(
       title: 'EiraFocus',

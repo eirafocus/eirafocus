@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Theme mode state ──────────────────────────────────────────
 class ThemeModeNotifier extends Notifier<ThemeMode> {
@@ -13,19 +14,132 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
 
+// ─── Accent color state ────────────────────────────────────────
+class AccentColorPreset {
+  final String name;
+  final Color primary;
+  final Color primaryLight; // for dark mode
+  final Color breathing;
+  final Color meditation;
+  final Color stats;
+  final Color history;
+
+  const AccentColorPreset({
+    required this.name,
+    required this.primary,
+    required this.primaryLight,
+    required this.breathing,
+    required this.meditation,
+    required this.stats,
+    required this.history,
+  });
+
+  static const List<AccentColorPreset> presets = [
+    AccentColorPreset(
+      name: 'Emerald',
+      primary: Color(0xFF2E7D32),
+      primaryLight: Color(0xFF66BB6A),
+      breathing: Color(0xFF43A047),
+      meditation: Color(0xFF00897B),
+      stats: Color(0xFF66BB6A),
+      history: Color(0xFF2E7D32),
+    ),
+    AccentColorPreset(
+      name: 'Ocean',
+      primary: Color(0xFF1565C0),
+      primaryLight: Color(0xFF64B5F6),
+      breathing: Color(0xFF1E88E5),
+      meditation: Color(0xFF0097A7),
+      stats: Color(0xFF42A5F5),
+      history: Color(0xFF1565C0),
+    ),
+    AccentColorPreset(
+      name: 'Lavender',
+      primary: Color(0xFF6A1B9A),
+      primaryLight: Color(0xFFBA68C8),
+      breathing: Color(0xFF8E24AA),
+      meditation: Color(0xFF5C6BC0),
+      stats: Color(0xFFAB47BC),
+      history: Color(0xFF6A1B9A),
+    ),
+    AccentColorPreset(
+      name: 'Sunset',
+      primary: Color(0xFFE65100),
+      primaryLight: Color(0xFFFF8A65),
+      breathing: Color(0xFFF4511E),
+      meditation: Color(0xFFFF6F00),
+      stats: Color(0xFFFF7043),
+      history: Color(0xFFE65100),
+    ),
+    AccentColorPreset(
+      name: 'Rose',
+      primary: Color(0xFFC62828),
+      primaryLight: Color(0xFFEF5350),
+      breathing: Color(0xFFE53935),
+      meditation: Color(0xFFAD1457),
+      stats: Color(0xFFEF5350),
+      history: Color(0xFFC62828),
+    ),
+    AccentColorPreset(
+      name: 'Teal',
+      primary: Color(0xFF00695C),
+      primaryLight: Color(0xFF4DB6AC),
+      breathing: Color(0xFF00897B),
+      meditation: Color(0xFF00838F),
+      stats: Color(0xFF26A69A),
+      history: Color(0xFF00695C),
+    ),
+  ];
+}
+
+class AccentColorNotifier extends Notifier<int> {
+  @override
+  int build() {
+    _loadSaved();
+    return 0; // default: Emerald
+  }
+
+  Future<void> _loadSaved() async {
+    final prefs = await SharedPreferences.getInstance();
+    final idx = prefs.getInt('accent_color_index') ?? 0;
+    if (idx != state && idx >= 0 && idx < AccentColorPreset.presets.length) {
+      state = idx;
+    }
+  }
+
+  Future<void> setIndex(int idx) async {
+    if (idx >= 0 && idx < AccentColorPreset.presets.length) {
+      state = idx;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('accent_color_index', idx);
+    }
+  }
+}
+
+final accentColorProvider =
+    NotifierProvider<AccentColorNotifier, int>(AccentColorNotifier.new);
+
 // ─── Theme definition ──────────────────────────────────────────
 class EiraTheme {
-  // Logo-derived greens
-  static const Color emerald = Color(0xFF2E7D32); // deep logo green
-  static const Color leaf = Color(0xFF43A047); // mid green
-  static const Color mint = Color(0xFF66BB6A); // bright green
-  static const Color forest = Color(0xFF1B5E20); // darkest green
+  // Logo-derived greens (defaults)
+  static const Color emerald = Color(0xFF2E7D32);
+  static const Color leaf = Color(0xFF43A047);
+  static const Color mint = Color(0xFF66BB6A);
+  static const Color forest = Color(0xFF1B5E20);
 
-  // Feature accent palette — all green-family
-  static const Color breathingColor = Color(0xFF43A047); // leaf green
-  static const Color meditationColor = Color(0xFF00897B); // teal green
-  static const Color statsColor = Color(0xFF66BB6A); // mint green
-  static const Color historyColor = Color(0xFF2E7D32); // deep emerald
+  // Active accent — updated by provider
+  static AccentColorPreset _accent = AccentColorPreset.presets[0];
+  static void setAccent(int index) {
+    if (index >= 0 && index < AccentColorPreset.presets.length) {
+      _accent = AccentColorPreset.presets[index];
+    }
+  }
+
+  // Feature accent palette — dynamic
+  static Color get breathingColor => _accent.breathing;
+  static Color get meditationColor => _accent.meditation;
+  static Color get statsColor => _accent.stats;
+  static Color get historyColor => _accent.history;
 
   // ─── Text Theme ──────────────────────────────────────────────
   static TextTheme _textTheme(Color onSurface) {
@@ -50,24 +164,25 @@ class EiraTheme {
 
   // ─── Light Theme ───────────────────────────────────────────────
   static ThemeData get lightTheme {
-    const bg = Color(0xFFF6F9F4); // very light green-tinted white
+    const bg = Color(0xFFF7F8F6);
     const surface = Colors.white;
-    const onSurface = Color(0xFF111B11); // near-black green for strong contrast
-    const muted = Color(0xFF3A4A3A);
-    const outline = Color(0xFFDDE5DD); // green-tinted border
+    const onSurface = Color(0xFF1A1A1A);
+    const muted = Color(0xFF4A4A4A);
+    const outline = Color(0xFFE0E0E0);
+    final primary = _accent.primary;
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      colorScheme: const ColorScheme.light(
-        primary: emerald,
-        secondary: leaf,
-        tertiary: meditationColor,
+      colorScheme: ColorScheme.light(
+        primary: primary,
+        secondary: _accent.breathing,
+        tertiary: _accent.meditation,
         surface: surface,
         onSurface: onSurface,
         outline: outline,
-        primaryContainer: Color(0xFFE8F5E9),
-        onPrimaryContainer: forest,
+        primaryContainer: primary.withAlpha(25),
+        onPrimaryContainer: primary,
       ),
       scaffoldBackgroundColor: bg,
       textTheme: _textTheme(onSurface),
@@ -90,7 +205,7 @@ class EiraTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: emerald,
+          backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
@@ -112,7 +227,7 @@ class EiraTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: outline)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: outline)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: emerald, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: primary, width: 1.5)),
         hintStyle: GoogleFonts.inter(color: muted, fontSize: 14),
         labelStyle: GoogleFonts.inter(color: muted, fontSize: 14),
       ),
@@ -136,10 +251,10 @@ class EiraTheme {
       ),
       dividerTheme: const DividerThemeData(color: outline, thickness: 1, space: 0),
       sliderTheme: SliderThemeData(
-        activeTrackColor: emerald,
-        inactiveTrackColor: emerald.withAlpha(35),
-        thumbColor: emerald,
-        overlayColor: emerald.withAlpha(25),
+        activeTrackColor: primary,
+        inactiveTrackColor: primary.withAlpha(35),
+        thumbColor: primary,
+        overlayColor: primary.withAlpha(25),
       ),
       popupMenuTheme: PopupMenuThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -150,24 +265,25 @@ class EiraTheme {
 
   // ─── Dark Theme ────────────────────────────────────────────────
   static ThemeData get darkTheme {
-    const bg = Color(0xFF0B110B); // very dark green-black
-    const surface = Color(0xFF141E14); // dark green card
-    const onSurface = Color(0xFFE8F0E8); // light green-white
-    const muted = Color(0xFF8FA38F);
-    const outline = Color(0xFF243024); // dark green border
+    const bg = Color(0xFF181819);
+    const surface = Color(0xFF222224);
+    const onSurface = Color(0xFFE8E8E8);
+    const muted = Color(0xFF8F8F8F);
+    const outline = Color(0xFF2E2E30);
+    final primary = _accent.primaryLight;
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: const ColorScheme.dark(
-        primary: mint,
-        secondary: leaf,
-        tertiary: meditationColor,
+      colorScheme: ColorScheme.dark(
+        primary: primary,
+        secondary: _accent.breathing,
+        tertiary: _accent.meditation,
         surface: surface,
         onSurface: onSurface,
         outline: outline,
-        primaryContainer: Color(0xFF1B3A1B),
-        onPrimaryContainer: mint,
+        primaryContainer: primary.withAlpha(30),
+        onPrimaryContainer: primary,
       ),
       scaffoldBackgroundColor: bg,
       textTheme: _textTheme(onSurface),
@@ -190,8 +306,8 @@ class EiraTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: mint,
-          foregroundColor: Color(0xFF0B110B),
+          backgroundColor: primary,
+          foregroundColor: const Color(0xFF0F0F0F),
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
           textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.3),
@@ -212,7 +328,7 @@ class EiraTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: outline)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: outline)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: mint, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: primary, width: 1.5)),
         hintStyle: GoogleFonts.inter(color: muted, fontSize: 14),
         labelStyle: GoogleFonts.inter(color: muted, fontSize: 14),
       ),
@@ -236,10 +352,10 @@ class EiraTheme {
       ),
       dividerTheme: const DividerThemeData(color: outline, thickness: 1, space: 0),
       sliderTheme: SliderThemeData(
-        activeTrackColor: mint,
-        inactiveTrackColor: mint.withAlpha(35),
-        thumbColor: mint,
-        overlayColor: mint.withAlpha(25),
+        activeTrackColor: primary,
+        inactiveTrackColor: primary.withAlpha(35),
+        thumbColor: primary,
+        overlayColor: primary.withAlpha(25),
       ),
       popupMenuTheme: PopupMenuThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

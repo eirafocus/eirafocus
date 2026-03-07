@@ -98,6 +98,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ref.read(themeModeProvider.notifier).setMode(mode);
             },
           ),
+          const SizedBox(height: 12),
+          _AccentColorPicker(
+            currentIndex: ref.watch(accentColorProvider),
+            onChanged: (idx) {
+              ref.read(accentColorProvider.notifier).setIndex(idx);
+            },
+          ),
 
           const SizedBox(height: 24),
 
@@ -367,6 +374,84 @@ class _ThemePicker extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Accent color picker ────────────────────────────────────────
+class _AccentColorPicker extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onChanged;
+
+  const _AccentColorPicker({required this.currentIndex, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final presets = AccentColorPreset.presets;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Accent Color',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(presets.length, (i) {
+              final preset = presets[i];
+              final selected = currentIndex == i;
+              return GestureDetector(
+                onTap: () => onChanged(i),
+                child: Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: preset.primary,
+                        shape: BoxShape.circle,
+                        border: selected
+                            ? Border.all(color: cs.onSurface, width: 3)
+                            : null,
+                        boxShadow: selected
+                            ? [BoxShadow(color: preset.primary.withAlpha(60), blurRadius: 8, spreadRadius: 2)]
+                            : null,
+                      ),
+                      child: selected
+                          ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                          : null,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      preset.name,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        color: selected ? cs.onSurface : cs.onSurface.withAlpha(100),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
