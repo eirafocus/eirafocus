@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -98,6 +98,18 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE sessions ADD COLUMN mood_before INTEGER');
       await db.execute('ALTER TABLE sessions ADD COLUMN mood_after INTEGER');
     }
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE session_presets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          method TEXT NOT NULL,
+          duration_minutes INTEGER,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -165,6 +177,17 @@ class DatabaseHelper {
         timestamp_seconds INTEGER NOT NULL,
         text TEXT NOT NULL,
         FOREIGN KEY (journey_id) REFERENCES custom_journeys(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE session_presets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        method TEXT NOT NULL,
+        duration_minutes INTEGER,
+        created_at TEXT NOT NULL
       )
     ''');
 
@@ -418,6 +441,22 @@ class DatabaseHelper {
       total += r['duration_seconds'] as int;
     }
     return total ~/ 60;
+  }
+
+  // ─── Session Presets ─────────────────────────────────────────────
+  Future<int> insertPreset(Map<String, dynamic> preset) async {
+    final db = await instance.database;
+    return await db.insert('session_presets', preset);
+  }
+
+  Future<List<Map<String, dynamic>>> getPresets() async {
+    final db = await instance.database;
+    return await db.query('session_presets', orderBy: 'created_at DESC');
+  }
+
+  Future<void> deletePreset(int id) async {
+    final db = await instance.database;
+    await db.delete('session_presets', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> getStreakDaysBetween(DateTime start, DateTime end) async {

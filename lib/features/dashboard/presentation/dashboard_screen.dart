@@ -9,6 +9,9 @@ import 'package:eirafocus/core/presentation/settings_screen.dart';
 import 'package:eirafocus/core/data/database_helper.dart';
 import 'package:eirafocus/features/streak/presentation/milestone_dialog.dart';
 import 'package:eirafocus/features/challenges/presentation/challenges_screen.dart';
+import 'package:eirafocus/features/breathing/domain/breathing_method.dart';
+import 'package:eirafocus/features/breathing/presentation/breathing_session_screen.dart';
+import 'package:eirafocus/features/meditation/presentation/meditation_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,6 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _totalMinutes = 0;
   int? _weeklyGoal;
   int _weeklyMinutes = 0;
+  List<Map<String, dynamic>> _presets = [];
 
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
@@ -57,6 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final sessions = await DatabaseHelper.instance.getSessions();
     final weeklyGoal = await DatabaseHelper.instance.getWeeklyGoal();
     final weeklyMinutes = await DatabaseHelper.instance.getWeeklyMinutes();
+    final presets = await DatabaseHelper.instance.getPresets();
     if (mounted) {
       setState(() {
         _currentStreak = streak;
@@ -64,6 +69,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _totalMinutes = sessions.fold<int>(0, (s, e) => s + e.durationSeconds) ~/ 60;
         _weeklyGoal = weeklyGoal;
         _weeklyMinutes = weeklyMinutes;
+        _presets = presets;
       });
     }
   }
@@ -98,6 +104,245 @@ class _DashboardScreenState extends State<DashboardScreen>
         // Just hit the goal
       }
     }
+  }
+
+  void _launchPreset(Map<String, dynamic> preset) {
+    final type = preset['type'] as String;
+    final method = preset['method'] as String;
+    final duration = preset['duration_minutes'] as int?;
+
+    if (type == 'Breathing') {
+      final breathingMethod = BreathingMethod.predefinedMethods.cast<BreathingMethod?>().firstWhere(
+        (m) => m!.name == method,
+        orElse: () => null,
+      );
+      if (breathingMethod != null) {
+        _navigate(BreathingSessionScreen(
+          method: breathingMethod,
+          targetMinutes: duration,
+        ));
+      }
+    } else {
+      _navigate(MeditationScreen(
+        initialMinutes: duration,
+      ));
+    }
+  }
+
+  Widget _buildPresetCard(Map<String, dynamic> preset) {
+    final cs = Theme.of(context).colorScheme;
+    final isBreathing = preset['type'] == 'Breathing';
+    final color = isBreathing ? EiraTheme.breathingColor : EiraTheme.meditationColor;
+    final duration = preset['duration_minutes'] as int?;
+
+    return GestureDetector(
+      onTap: () => _launchPreset(preset),
+      onLongPress: () => _showDeletePresetDialog(preset['id'] as int, preset['name'] as String),
+      child: Container(
+        width: 130,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outline.withAlpha(80)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isBreathing ? Icons.air_rounded : Icons.self_improvement_rounded,
+                  size: 16,
+                  color: color,
+                ),
+                const Spacer(),
+                Icon(Icons.play_circle_filled_rounded, size: 20, color: color),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              preset['name'] as String,
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              duration != null ? '$duration min' : 'Free',
+              style: GoogleFonts.inter(fontSize: 11, color: cs.onSurface.withAlpha(100)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeletePresetDialog(int id, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Preset'),
+        content: Text('Remove "$name" from quick start?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await DatabaseHelper.instance.deletePreset(id);
+              _loadData();
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreatePresetDialog() {
+    final cs = Theme.of(context).colorScheme;
+    String name = '';
+    String type = 'Breathing';
+    String method = BreathingMethod.predefinedMethods.first.name;
+    int? duration; // null = Free
+    bool durationSelected = true; // Free is selected by default
+
+    final breathingNames = BreathingMethod.predefinedMethods.map((m) => m.name).toList();
+    final durations = [null, 3, 5, 10, 15, 20, 30];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(ctx).viewInsets.bottom + 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: cs.onSurface.withAlpha(40), borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 20),
+              Text('Create Preset', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              TextField(
+                onChanged: (v) => setSheetState(() => name = v),
+                decoration: const InputDecoration(hintText: 'Preset name', isDense: true),
+              ),
+              const SizedBox(height: 14),
+              // Type toggle
+              Row(
+                children: ['Breathing', 'Meditation'].map((t) {
+                  final selected = type == t;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setSheetState(() {
+                        type = t;
+                        if (t == 'Breathing') method = breathingNames.first;
+                        if (t == 'Meditation') method = 'Meditation';
+                      }),
+                      child: Container(
+                        margin: EdgeInsets.only(right: t == 'Breathing' ? 4 : 0, left: t == 'Meditation' ? 4 : 0),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: selected ? cs.primary.withAlpha(80) : cs.outline.withAlpha(80)),
+                        ),
+                        child: Center(
+                          child: Text(t, style: GoogleFonts.inter(
+                            fontSize: 13, fontWeight: FontWeight.w600,
+                            color: selected ? cs.primary : cs.onSurface.withAlpha(120),
+                          )),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              // Method picker for breathing
+              if (type == 'Breathing') ...[
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: breathingNames.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 6),
+                    itemBuilder: (_, i) {
+                      final selected = method == breathingNames[i];
+                      return GestureDetector(
+                        onTap: () => setSheetState(() => method = breathingNames[i]),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: selected ? cs.primary.withAlpha(80) : cs.outline.withAlpha(80)),
+                          ),
+                          child: Text(breathingNames[i], style: GoogleFonts.inter(
+                            fontSize: 12, fontWeight: FontWeight.w600,
+                            color: selected ? cs.primary : cs.onSurface.withAlpha(120),
+                          )),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              // Duration
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: durations.map((d) {
+                  final selected = durationSelected && duration == d;
+                  final label = d == null ? 'Free' : '$d min';
+                  return GestureDetector(
+                    onTap: () => setSheetState(() { duration = d; durationSelected = true; }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: selected ? cs.primary.withAlpha(80) : cs.outline.withAlpha(80)),
+                      ),
+                      child: Text(label, style: GoogleFonts.inter(
+                        fontSize: 12, fontWeight: FontWeight.w600,
+                        color: selected ? cs.primary : cs.onSurface.withAlpha(120),
+                      )),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: name.trim().isEmpty ? null : () async {
+                    Navigator.pop(ctx);
+                    await DatabaseHelper.instance.insertPreset({
+                      'name': name,
+                      'type': type,
+                      'method': type == 'Meditation' ? 'Meditation' : method,
+                      'duration_minutes': duration,
+                      'created_at': DateTime.now().toIso8601String(),
+                    });
+                    _loadData();
+                  },
+                  child: const Text('Save Preset'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -193,6 +438,67 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ],
 
+
+              // Quick presets
+              if (_presets.isNotEmpty || _totalSessions > 0) ...[
+                const SizedBox(height: 20),
+                FadeTransition(
+                  opacity: _fadeAnim,
+                  child: SlideTransition(
+                    position: _slideAnim,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text('Quick Start', style: Theme.of(context).textTheme.headlineMedium),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () => _showCreatePresetDialog(),
+                              child: Icon(Icons.add_rounded, size: 22, color: Theme.of(context).colorScheme.primary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 88,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _presets.length + 1,
+                            separatorBuilder: (_, __) => const SizedBox(width: 10),
+                            itemBuilder: (context, i) {
+                              if (i < _presets.length) return _buildPresetCard(_presets[i]);
+                              // Add button
+                              return GestureDetector(
+                                onTap: _showCreatePresetDialog,
+                                child: Container(
+                                  width: 88,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha(80)),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_rounded, size: 24, color: Theme.of(context).colorScheme.primary),
+                                      const SizedBox(height: 4),
+                                      Text('Add', style: GoogleFonts.inter(
+                                        fontSize: 12, fontWeight: FontWeight.w600,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      )),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 28),
 
