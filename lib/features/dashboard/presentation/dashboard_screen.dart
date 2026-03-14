@@ -27,6 +27,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _totalMinutes = 0;
   int? _weeklyGoal;
   int _weeklyMinutes = 0;
+  int _lastWeekMinutes = 0;
+  int _thisWeekSessions = 0;
+  int _lastWeekSessions = 0;
   List<Map<String, dynamic>> _presets = [];
 
   late final AnimationController _animController;
@@ -61,6 +64,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     final sessions = await DatabaseHelper.instance.getSessions();
     final weeklyGoal = await DatabaseHelper.instance.getWeeklyGoal();
     final weeklyMinutes = await DatabaseHelper.instance.getWeeklyMinutes();
+    final lastWeekMinutes = await DatabaseHelper.instance.getLastWeekMinutes();
+    final thisWeekSessions = await DatabaseHelper.instance.getThisWeekSessionCount();
+    final lastWeekSessions = await DatabaseHelper.instance.getLastWeekSessionCount();
     final presets = await DatabaseHelper.instance.getPresets();
     if (mounted) {
       setState(() {
@@ -69,6 +75,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         _totalMinutes = sessions.fold<int>(0, (s, e) => s + e.durationSeconds) ~/ 60;
         _weeklyGoal = weeklyGoal;
         _weeklyMinutes = weeklyMinutes;
+        _lastWeekMinutes = lastWeekMinutes;
+        _thisWeekSessions = thisWeekSessions;
+        _lastWeekSessions = lastWeekSessions;
         _presets = presets;
       });
     }
@@ -457,9 +466,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                     children: [
                       _StatChip(label: 'Streak', value: '$_currentStreak day${_currentStreak == 1 ? '' : 's'}', icon: Icons.local_fire_department_rounded, color: const Color(0xFFFF7043)),
                       const SizedBox(width: 10),
-                      _StatChip(label: 'Sessions', value: '$_totalSessions', icon: Icons.check_circle_outline_rounded, color: EiraTheme.breathingColor),
+                      _StatChip(
+                        label: 'Sessions',
+                        value: '$_totalSessions',
+                        icon: Icons.check_circle_outline_rounded,
+                        color: EiraTheme.breathingColor,
+                        weekDelta: _lastWeekSessions > 0 || _thisWeekSessions > 0 ? _thisWeekSessions - _lastWeekSessions : null,
+                      ),
                       const SizedBox(width: 10),
-                      _StatChip(label: 'Minutes', value: '$_totalMinutes', icon: Icons.schedule_rounded, color: EiraTheme.meditationColor),
+                      _StatChip(
+                        label: 'Minutes',
+                        value: '$_totalMinutes',
+                        icon: Icons.schedule_rounded,
+                        color: EiraTheme.meditationColor,
+                        weekDelta: _lastWeekMinutes > 0 || _weeklyMinutes > 0 ? _weeklyMinutes - _lastWeekMinutes : null,
+                      ),
                     ],
                   ),
                 ),
@@ -862,17 +883,40 @@ class _StatChip extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final int? weekDelta;
 
   const _StatChip({
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
+    this.weekDelta,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final delta = weekDelta;
+    final trendColor = delta == null
+        ? null
+        : delta > 0
+            ? const Color(0xFF2E7D32)
+            : delta < 0
+                ? const Color(0xFFEF5350)
+                : cs.onSurface.withAlpha(80);
+    final trendIcon = delta == null
+        ? null
+        : delta > 0
+            ? Icons.arrow_upward_rounded
+            : delta < 0
+                ? Icons.arrow_downward_rounded
+                : Icons.remove_rounded;
+    final trendText = delta == null
+        ? null
+        : delta == 0
+            ? 'same'
+            : '${delta > 0 ? '+' : ''}$delta';
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -900,6 +944,28 @@ class _StatChip extends StatelessWidget {
                 fontSize: 11,
                 color: cs.onSurface.withAlpha(100),
               ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 14,
+              child: trendText != null
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(trendIcon, size: 10, color: trendColor),
+                        const SizedBox(width: 2),
+                        Text(
+                          trendText,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: trendColor,
+                          ),
+                        ),
+                      ],
+                    )
+                  : null,
             ),
           ],
         ),

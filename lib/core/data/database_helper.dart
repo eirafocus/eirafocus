@@ -443,6 +443,31 @@ class DatabaseHelper {
     return total ~/ 60;
   }
 
+  Future<int> getLastWeekMinutes() async {
+    final now = DateTime.now();
+    final thisWeekStart = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
+    final lastWeekEnd = thisWeekStart.subtract(const Duration(seconds: 1));
+    return getTotalMinutesBetween(lastWeekStart, lastWeekEnd);
+  }
+
+  Future<int> getLastWeekSessionCount() async {
+    final now = DateTime.now();
+    final thisWeekStart = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
+    final lastWeekEnd = thisWeekStart.subtract(const Duration(seconds: 1));
+    return getSessionCountBetween(lastWeekStart, lastWeekEnd);
+  }
+
+  Future<int> getThisWeekSessionCount() async {
+    final now = DateTime.now();
+    final weekStart = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    return getSessionCountBetween(weekStart, now);
+  }
+
   // ─── Session Presets ─────────────────────────────────────────────
   Future<int> insertPreset(Map<String, dynamic> preset) async {
     final db = await instance.database;
