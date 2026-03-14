@@ -143,7 +143,12 @@ class EiraTheme {
 
   // ─── Text Theme ──────────────────────────────────────────────
   static TextTheme _textTheme(Color onSurface) {
-    return GoogleFonts.interTextTheme(
+    const emojiFont = ['Apple Color Emoji', 'Noto Color Emoji'];
+    TextStyle? _e(TextStyle? s) => s?.copyWith(
+      fontFamilyFallback: [...(s.fontFamilyFallback ?? []), ...emojiFont],
+    );
+
+    final base = GoogleFonts.interTextTheme(
       TextTheme(
         displayLarge: TextStyle(fontSize: 40, fontWeight: FontWeight.w700, color: onSurface, letterSpacing: -1.5),
         displayMedium: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: onSurface, letterSpacing: -0.5),
@@ -159,6 +164,22 @@ class EiraTheme {
         labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: onSurface.withAlpha(180)),
         labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: onSurface.withAlpha(140), letterSpacing: 0.5),
       ),
+    );
+
+    return base.copyWith(
+      displayLarge: _e(base.displayLarge),
+      displayMedium: _e(base.displayMedium),
+      headlineLarge: _e(base.headlineLarge),
+      headlineMedium: _e(base.headlineMedium),
+      titleLarge: _e(base.titleLarge),
+      titleMedium: _e(base.titleMedium),
+      titleSmall: _e(base.titleSmall),
+      bodyLarge: _e(base.bodyLarge),
+      bodyMedium: _e(base.bodyMedium),
+      bodySmall: _e(base.bodySmall),
+      labelLarge: _e(base.labelLarge),
+      labelMedium: _e(base.labelMedium),
+      labelSmall: _e(base.labelSmall),
     );
   }
 

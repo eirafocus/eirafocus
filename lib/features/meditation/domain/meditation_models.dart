@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class MeditationPrompt {
   final String text;
   final Duration interval;
@@ -30,28 +32,38 @@ class SessionTag {
     'Quick Break',
   ];
 
-  static const List<String> _emojis = [
-    '\u{1F9D8}', // Calm - meditation
-    '\u{1F3AF}', // Focused - target
-    '\u{26A1}',  // Stressed - lightning
-    '\u{1F634}', // Sleepy - sleeping
-    '\u{1F525}', // Energized - fire
-    '\u{1F30A}', // Anxious - wave
-    '\u{2764}',  // Grateful - heart
-    '\u{2600}',  // Morning - sun
-    '\u{1F319}', // Evening - moon
-    '\u{2615}',  // Quick Break - coffee
+  static const List<IconData> _icons = [
+    Icons.spa_rounded,              // Calm
+    Icons.gps_fixed_rounded,        // Focused
+    Icons.bolt_rounded,             // Stressed
+    Icons.bedtime_rounded,          // Sleepy
+    Icons.local_fire_department_rounded, // Energized
+    Icons.waves_rounded,            // Anxious
+    Icons.favorite_rounded,         // Grateful
+    Icons.wb_sunny_rounded,         // Morning
+    Icons.nightlight_round,         // Evening
+    Icons.coffee_rounded,           // Quick Break
   ];
 
-  static String emojiFor(String label) {
+  static IconData iconFor(String label) {
     final i = availableLabels.indexOf(label);
-    return i >= 0 ? _emojis[i] : '\u{1F3F7}';
+    return i >= 0 ? _icons[i] : Icons.label_rounded;
   }
+
+  // Keep for DB backwards-compat
+  static String emojiFor(String label) => label;
 }
 
 class MoodData {
-  static const moods = ['😫', '😟', '😐', '🙂', '😊'];
   static const labels = ['Awful', 'Bad', 'Okay', 'Good', 'Great'];
+
+  static const moodColors = [
+    Color(0xFFEF5350), // Awful  - red
+    Color(0xFFFF7043), // Bad    - orange
+    Color(0xFFFFB300), // Okay   - amber
+    Color(0xFF66BB6A), // Good   - light green
+    Color(0xFF2E7D32), // Great  - green
+  ];
 }
 
 class MeditationSession {

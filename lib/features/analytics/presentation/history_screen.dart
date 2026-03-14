@@ -16,6 +16,14 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  static const _moodIcons = [
+    Icons.sentiment_very_dissatisfied_rounded,
+    Icons.sentiment_dissatisfied_rounded,
+    Icons.sentiment_neutral_rounded,
+    Icons.sentiment_satisfied_rounded,
+    Icons.sentiment_very_satisfied_rounded,
+  ];
+
   List<MeditationSession> _allSessions = [];
   bool _loading = true;
 
@@ -364,13 +372,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Row(
                 children: [
                   if (session.moodBefore != null) ...[
-                    Text('Before: ${MoodData.moods[session.moodBefore! - 1]}',
+                    Icon(
+                      _moodIcons[session.moodBefore! - 1],
+                      size: 14,
+                      color: MoodData.moodColors[session.moodBefore! - 1],
+                    ),
+                    const SizedBox(width: 2),
+                    Text(MoodData.labels[session.moodBefore! - 1],
                         style: GoogleFonts.inter(fontSize: 11, color: cs.onSurface.withAlpha(100))),
                   ],
                   if (session.moodBefore != null && session.moodAfter != null)
                     Text('  →  ', style: GoogleFonts.inter(fontSize: 11, color: cs.onSurface.withAlpha(60))),
                   if (session.moodAfter != null) ...[
-                    Text('After: ${MoodData.moods[session.moodAfter! - 1]}',
+                    Icon(
+                      _moodIcons[session.moodAfter! - 1],
+                      size: 14,
+                      color: MoodData.moodColors[session.moodAfter! - 1],
+                    ),
+                    const SizedBox(width: 2),
+                    Text(MoodData.labels[session.moodAfter! - 1],
                         style: GoogleFonts.inter(fontSize: 11, color: cs.onSurface.withAlpha(100))),
                   ],
                 ],
@@ -390,7 +410,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(SessionTag.emojiFor(tag), style: const TextStyle(fontSize: 10)),
+                      Icon(SessionTag.iconFor(tag), size: 10, color: cs.primary.withAlpha(180)),
                       const SizedBox(width: 3),
                       Text(tag, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: cs.primary.withAlpha(180))),
                     ],

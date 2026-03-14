@@ -880,32 +880,82 @@ class _ActionCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.all(large ? 22 : 18),
+        padding: EdgeInsets.all(large ? 22 : 16),
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: cs.outline.withAlpha(80)),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: large ? 52 : 44,
-              height: large ? 52 : 44,
-              decoration: BoxDecoration(
-                color: color.withAlpha(22),
-                borderRadius: BorderRadius.circular(large ? 16 : 13),
-              ),
-              child: Icon(icon, color: color, size: large ? 26 : 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+        child: large
+            ? Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: color.withAlpha(22),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(icon, color: color, size: 26),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.inter(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: cs.onSurface.withAlpha(100),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: cs.onSurface.withAlpha(60),
+                    size: 22,
+                  ),
+                ],
+              )
+            : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color.withAlpha(22),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(icon, color: color, size: 20),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: cs.onSurface.withAlpha(60),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      fontSize: large ? 17 : 15,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: cs.onSurface,
                     ),
@@ -914,20 +964,14 @@ class _ActionCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: GoogleFonts.inter(
-                      fontSize: large ? 13 : 12,
+                      fontSize: 12,
                       color: cs.onSurface.withAlpha(100),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: cs.onSurface.withAlpha(60),
-              size: 22,
-            ),
-          ],
-        ),
       ),
     );
   }

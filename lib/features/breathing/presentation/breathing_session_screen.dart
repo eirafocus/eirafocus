@@ -285,22 +285,31 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: List.generate(5, (i) {
                         final selected = moodAfter == i + 1;
+                        final moodColor = MoodData.moodColors[i];
+                        const moodIcons = [
+                          Icons.sentiment_very_dissatisfied_rounded,
+                          Icons.sentiment_dissatisfied_rounded,
+                          Icons.sentiment_neutral_rounded,
+                          Icons.sentiment_satisfied_rounded,
+                          Icons.sentiment_very_satisfied_rounded,
+                        ];
                         return GestureDetector(
                           onTap: () => setDialogState(() => moodAfter = i + 1),
                           child: Column(
                             children: [
-                              Container(
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                                  color: selected ? moodColor.withAlpha(25) : Colors.transparent,
                                   shape: BoxShape.circle,
-                                  border: selected ? Border.all(color: cs.primary.withAlpha(80), width: 2) : null,
+                                  border: selected ? Border.all(color: moodColor.withAlpha(120), width: 2) : null,
                                 ),
-                                child: Center(child: Text(MoodData.moods[i], style: TextStyle(fontSize: selected ? 22 : 18))),
+                                child: Icon(moodIcons[i], size: selected ? 24 : 20, color: selected ? moodColor : cs.onSurface.withAlpha(80)),
                               ),
                               const SizedBox(height: 2),
-                              Text(MoodData.labels[i], style: GoogleFonts.inter(fontSize: 9, color: selected ? cs.primary : cs.onSurface.withAlpha(80))),
+                              Text(MoodData.labels[i], style: GoogleFonts.inter(fontSize: 9, color: selected ? moodColor : cs.onSurface.withAlpha(80))),
                             ],
                           ),
                         );
@@ -328,8 +337,8 @@ class _BreathingSessionScreenState extends State<BreathingSessionScreen>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(SessionTag.emojiFor(label), style: const TextStyle(fontSize: 13)),
-                                const SizedBox(width: 4),
+                                Icon(SessionTag.iconFor(label), size: 12, color: selected ? cs.primary : cs.onSurface.withAlpha(120)),
+                                const SizedBox(width: 5),
                                 Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: selected ? cs.primary : cs.onSurface.withAlpha(120))),
                               ],
                             ),
