@@ -36,7 +36,6 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
     if (android != null) {
       await android.requestNotificationsPermission();
-      await android.requestExactAlarmsPermission();
     }
 
     const androidDetails = AndroidNotificationDetails(

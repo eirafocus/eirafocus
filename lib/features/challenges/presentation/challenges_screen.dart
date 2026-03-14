@@ -151,13 +151,196 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
     }
   }
 
+  void _showCreateSheet(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final nameController = TextEditingController();
+    bool nameValid = false;
+    String type = 'session_count';
+    int target = 10;
+    int days = 7;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final bottomPadding = MediaQuery.of(ctx).viewPadding.bottom;
+          final keyboardPadding = MediaQuery.of(ctx).viewInsets.bottom;
+
+          final typeOptions = [
+            ('session_count', 'Sessions', Icons.check_circle_outline_rounded),
+            ('total_minutes', 'Minutes', Icons.schedule_rounded),
+            ('streak_days', 'Streak Days', Icons.local_fire_department_rounded),
+          ];
+
+          final targetPresets = switch (type) {
+            'session_count' => [5, 10, 20, 30],
+            'total_minutes' => [30, 60, 120, 240],
+            _ => [3, 7, 14, 30],
+          };
+
+          final unit = _unitFor(type);
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(24, 16, 24, 32 + bottomPadding + keyboardPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withAlpha(40),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text('Create Challenge',
+                    style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(hintText: 'Challenge name', isDense: true),
+                  onChanged: (v) => setSheet(() => nameValid = v.trim().isNotEmpty),
+                ),
+                const SizedBox(height: 16),
+                Text('Metric', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(100))),
+                const SizedBox(height: 8),
+                Row(
+                  children: typeOptions.map((opt) {
+                    final selected = type == opt.$1;
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: opt.$1 != 'streak_days' ? 8 : 0),
+                        child: GestureDetector(
+                          onTap: () => setSheet(() {
+                            type = opt.$1;
+                            target = switch (opt.$1) {
+                              'session_count' => 10,
+                              'total_minutes' => 60,
+                              _ => 7,
+                            };
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: selected ? cs.primary.withAlpha(100) : cs.outline.withAlpha(80)),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(opt.$3, size: 18, color: selected ? cs.primary : cs.onSurface.withAlpha(100)),
+                                const SizedBox(height: 4),
+                                Text(opt.$2, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: selected ? cs.primary : cs.onSurface.withAlpha(120)), textAlign: TextAlign.center),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                Text('Target ($unit)', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(100))),
+                const SizedBox(height: 8),
+                Row(
+                  children: targetPresets.map((v) {
+                    final selected = target == v;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => setSheet(() => target = v),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: selected ? cs.primary.withAlpha(100) : cs.outline.withAlpha(80)),
+                          ),
+                          child: Text('$v', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? cs.primary : cs.onSurface.withAlpha(120))),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                Text('Duration', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(100))),
+                const SizedBox(height: 8),
+                Row(
+                  children: [7, 14, 21, 30].map((d) {
+                    final selected = days == d;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => setSheet(() => days = d),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selected ? cs.primary.withAlpha(20) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: selected ? cs.primary.withAlpha(100) : cs.outline.withAlpha(80)),
+                          ),
+                          child: Text('${d}d', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? cs.primary : cs.onSurface.withAlpha(120))),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: !nameValid ? null : () async {
+                      Navigator.pop(ctx);
+                      await _startChallenge({
+                        'title': nameController.text.trim(),
+                        'description': 'Reach $target $unit in ${days} days',
+                        'type': type,
+                        'target': target,
+                        'days': days,
+                      });
+                    },
+                    child: const Text('Create Challenge'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Challenges')),
+      appBar: AppBar(
+        title: const Text('Challenges'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: const Icon(Icons.add_rounded),
+              tooltip: 'Create custom challenge',
+              onPressed: () => _showCreateSheet(context),
+            ),
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : ListView(

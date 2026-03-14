@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_models.dart';
 import 'package:eirafocus/features/meditation/domain/meditation_journey.dart';
 
@@ -21,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -107,6 +108,14 @@ class DatabaseHelper {
           method TEXT NOT NULL,
           duration_minutes INTEGER,
           created_at TEXT NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE streak_freezes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          freeze_date TEXT NOT NULL UNIQUE
         )
       ''');
     }
@@ -203,6 +212,13 @@ class DatabaseHelper {
         completed INTEGER NOT NULL DEFAULT 0
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE streak_freezes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        freeze_date TEXT NOT NULL UNIQUE
+      )
+    ''');
   }
 
   // ─── Custom Methods ──────────────────────────────────────────
@@ -257,10 +273,19 @@ class DatabaseHelper {
       final difference = todayDateTime.difference(lastDateTime).inDays;
 
       if (difference == 1) {
+        final newStreak = currentStreak + 1;
         await db.update('streaks', {
           'last_session_date': today,
-          'current_streak': currentStreak + 1,
+          'current_streak': newStreak,
         });
+        // Award a freeze token on every 7-day milestone (max 2)
+        if (newStreak % 7 == 0) {
+          final prefs = await SharedPreferences.getInstance();
+          final tokens = prefs.getInt('streak_freeze_tokens') ?? 1;
+          if (tokens < 2) {
+            await prefs.setInt('streak_freeze_tokens', tokens + 1);
+          }
+        }
       } else if (difference > 1) {
         await db.update('streaks', {
           'last_session_date': today,
@@ -280,11 +305,93 @@ class DatabaseHelper {
     final today = DateTime.now();
     final difference = DateTime(today.year, today.month, today.day).difference(lastDateTime).inDays;
 
-    if (difference > 1) {
-      return 0;
+    if (difference <= 1) return result.first['current_streak'] as int;
+
+    if (difference == 2) {
+      // Check if the missed day has a freeze applied
+      final missedDate = lastDateTime.add(const Duration(days: 1));
+      final missedDateStr = _isoDate(missedDate);
+      final freeze = await db.query('streak_freezes',
+          where: 'freeze_date = ?', whereArgs: [missedDateStr]);
+      if (freeze.isNotEmpty) return result.first['current_streak'] as int;
     }
 
-    return result.first['current_streak'] as int;
+    return 0;
+  }
+
+  // ─── Streak Freeze ────────────────────────────────────────────
+  Future<int> getFreezesAvailable() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('streak_freeze_tokens') ?? 1;
+  }
+
+  /// Returns the saved streak value and whether a freeze can restore it.
+  Future<({int streak, bool canFreeze, int freezeTokens})> getStreakStatus() async {
+    final db = await instance.database;
+    final result = await db.query('streaks', limit: 1);
+    final tokens = await getFreezesAvailable();
+
+    if (result.isEmpty) return (streak: 0, canFreeze: false, freezeTokens: tokens);
+
+    final lastDate = result.first['last_session_date'] as String;
+    final lastDateTime = DateTime.parse(lastDate);
+    final today = DateTime.now();
+    final difference =
+        DateTime(today.year, today.month, today.day).difference(lastDateTime).inDays;
+    final savedStreak = result.first['current_streak'] as int;
+
+    if (difference <= 1) {
+      return (streak: savedStreak, canFreeze: false, freezeTokens: tokens);
+    }
+
+    if (difference == 2 && tokens > 0) {
+      // Check if already frozen
+      final missedDate = lastDateTime.add(const Duration(days: 1));
+      final freeze = await db.query('streak_freezes',
+          where: 'freeze_date = ?', whereArgs: [_isoDate(missedDate)]);
+      if (freeze.isNotEmpty) {
+        return (streak: savedStreak, canFreeze: false, freezeTokens: tokens);
+      }
+      return (streak: 0, canFreeze: true, freezeTokens: tokens);
+    }
+
+    return (streak: 0, canFreeze: false, freezeTokens: tokens);
+  }
+
+  Future<bool> applyStreakFreeze() async {
+    final db = await instance.database;
+    final result = await db.query('streaks', limit: 1);
+    if (result.isEmpty) return false;
+
+    final lastDate = result.first['last_session_date'] as String;
+    final lastDateTime = DateTime.parse(lastDate);
+    final today = DateTime.now();
+    final difference =
+        DateTime(today.year, today.month, today.day).difference(lastDateTime).inDays;
+
+    if (difference != 2) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    final tokens = prefs.getInt('streak_freeze_tokens') ?? 1;
+    if (tokens <= 0) return false;
+
+    final missedDate = lastDateTime.add(const Duration(days: 1));
+    await db.insert('streak_freezes', {'freeze_date': _isoDate(missedDate)},
+        conflictAlgorithm: ConflictAlgorithm.ignore);
+    await prefs.setInt('streak_freeze_tokens', tokens - 1);
+    return true;
+  }
+
+  static String _isoDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Debug only: shifts last_session_date back 2 days to simulate a missed day.
+  Future<void> debugSimulateMissedDay() async {
+    final db = await instance.database;
+    final result = await db.query('streaks', limit: 1);
+    if (result.isEmpty) return;
+    final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+    await db.update('streaks', {'last_session_date': _isoDate(twoDaysAgo)});
   }
 
   // ─── Favorites ───────────────────────────────────────────────

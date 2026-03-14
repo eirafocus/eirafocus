@@ -30,6 +30,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _lastWeekMinutes = 0;
   int _thisWeekSessions = 0;
   int _lastWeekSessions = 0;
+  bool _canFreeze = false;
+  int _freezeTokens = 0;
+  int _savedStreak = 0;
   List<Map<String, dynamic>> _presets = [];
 
   late final AnimationController _animController;
@@ -60,7 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _loadData() async {
-    final streak = await DatabaseHelper.instance.getCurrentStreak();
+    final streakStatus = await DatabaseHelper.instance.getStreakStatus();
     final sessions = await DatabaseHelper.instance.getSessions();
     final weeklyGoal = await DatabaseHelper.instance.getWeeklyGoal();
     final weeklyMinutes = await DatabaseHelper.instance.getWeeklyMinutes();
@@ -68,9 +71,21 @@ class _DashboardScreenState extends State<DashboardScreen>
     final thisWeekSessions = await DatabaseHelper.instance.getThisWeekSessionCount();
     final lastWeekSessions = await DatabaseHelper.instance.getLastWeekSessionCount();
     final presets = await DatabaseHelper.instance.getPresets();
+
+    // Fetch raw streak value from DB for the freeze card display
+    int savedStreak = streakStatus.streak;
+    if (streakStatus.canFreeze) {
+      final db = await DatabaseHelper.instance.database;
+      final r = await db.query('streaks', limit: 1);
+      savedStreak = r.isEmpty ? 0 : r.first['current_streak'] as int;
+    }
+
     if (mounted) {
       setState(() {
-        _currentStreak = streak;
+        _currentStreak = streakStatus.streak;
+        _canFreeze = streakStatus.canFreeze;
+        _freezeTokens = streakStatus.freezeTokens;
+        _savedStreak = savedStreak;
         _totalSessions = sessions.length;
         _totalMinutes = sessions.fold<int>(0, (s, e) => s + e.durationSeconds) ~/ 60;
         _weeklyGoal = weeklyGoal;
@@ -113,6 +128,19 @@ class _DashboardScreenState extends State<DashboardScreen>
         _weeklyMinutes >= _weeklyGoal! &&
         mounted) {
       _showWeeklyGoalCelebration(_weeklyGoal!);
+    }
+  }
+
+  Future<void> _useStreakFreeze() async {
+    final success = await DatabaseHelper.instance.applyStreakFreeze();
+    if (success && mounted) {
+      await _loadData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Streak protected! $_freezeTokens freeze${_freezeTokens == 1 ? '' : 's'} remaining.'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -514,6 +542,22 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
 
 
+              // Streak freeze card
+              if (_canFreeze) ...[
+                const SizedBox(height: 16),
+                FadeTransition(
+                  opacity: _fadeAnim,
+                  child: SlideTransition(
+                    position: _slideAnim,
+                    child: _StreakFreezeCard(
+                      savedStreak: _savedStreak,
+                      freezeTokens: _freezeTokens,
+                      onFreeze: _useStreakFreeze,
+                    ),
+                  ),
+                ),
+              ],
+
               // Quick presets
               if (_presets.isNotEmpty || _totalSessions > 0) ...[
                 const SizedBox(height: 20),
@@ -640,6 +684,95 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Streak Freeze Card ────────────────────────────────────────
+class _StreakFreezeCard extends StatelessWidget {
+  final int savedStreak;
+  final int freezeTokens;
+  final VoidCallback onFreeze;
+
+  const _StreakFreezeCard({
+    required this.savedStreak,
+    required this.freezeTokens,
+    required this.onFreeze,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    const freezeColor = Color(0xFF42A5F5);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: freezeColor.withAlpha(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: freezeColor.withAlpha(80)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: freezeColor.withAlpha(25),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.ac_unit_rounded, color: freezeColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$savedStreak-day streak at risk!',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'You missed yesterday. Use a freeze to protect it.',
+                  style: GoogleFonts.inter(fontSize: 12, color: cs.onSurface.withAlpha(120)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onFreeze,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: freezeColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Freeze',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    '$freezeTokens left',
+                    style: GoogleFonts.inter(fontSize: 10, color: Colors.white.withAlpha(200)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

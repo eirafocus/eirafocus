@@ -15,7 +15,8 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   late Future<List<MeditationSession>> _sessionsFuture;
-  bool _showWeekly = true; // true = week, false = month
+  bool _showWeekly = true;
+  String? _tagFilter;
 
   @override
   void initState() {
@@ -68,7 +69,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildContent(List<MeditationSession> sessions, ColorScheme cs, TextTheme tt) {
+  Widget _buildContent(List<MeditationSession> allSessions, ColorScheme cs, TextTheme tt) {
+    // All unique tags across all sessions
+    final allTags = <String>{};
+    for (final s in allSessions) {
+      allTags.addAll(s.tags);
+    }
+
+    // Tag frequency map (unfiltered — always show all tags in breakdown)
+    final Map<String, int> tagFrequency = {};
+    for (final s in allSessions) {
+      for (final t in s.tags) {
+        tagFrequency[t] = (tagFrequency[t] ?? 0) + 1;
+      }
+    }
+    final sortedTags = tagFrequency.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Apply tag filter to everything else
+    final sessions = _tagFilter == null
+        ? allSessions
+        : allSessions.where((s) => s.tags.contains(_tagFilter)).toList();
+
     final totalSecs = sessions.fold<int>(0, (s, e) => s + e.durationSeconds);
     final avg = sessions.isEmpty ? 0.0 : totalSecs / sessions.length / 60;
     final breathCount = sessions.where((s) => s.type == 'Breathing').length;
@@ -86,6 +108,37 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Tag filter chips
+          if (allTags.isNotEmpty) ...[
+            SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _TagFilterChip(
+                    label: 'All',
+                    icon: Icons.apps_rounded,
+                    selected: _tagFilter == null,
+                    onTap: () => setState(() => _tagFilter = null),
+                    cs: cs,
+                  ),
+                  const SizedBox(width: 8),
+                  ...allTags.map((tag) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _TagFilterChip(
+                      label: tag,
+                      icon: SessionTag.iconFor(tag),
+                      selected: _tagFilter == tag,
+                      onTap: () => setState(() => _tagFilter = _tagFilter == tag ? null : tag),
+                      cs: cs,
+                    ),
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Summary row
           Row(
             children: [
@@ -276,7 +329,121 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ],
             ),
           ),
+          // Tag breakdown
+          if (sortedTags.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            Text('Tags', style: tt.headlineMedium),
+            const SizedBox(height: 6),
+            Text('Most used session tags', style: tt.bodySmall),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.outline.withAlpha(80)),
+              ),
+              child: Column(
+                children: sortedTags.map((entry) {
+                  final fraction = entry.value / sortedTags.first.value;
+                  final isFiltered = _tagFilter == entry.key;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GestureDetector(
+                      onTap: () => setState(() =>
+                          _tagFilter = _tagFilter == entry.key ? null : entry.key),
+                      child: Row(
+                        children: [
+                          Icon(SessionTag.iconFor(entry.key),
+                              size: 14,
+                              color: isFiltered ? cs.primary : cs.onSurface.withAlpha(120)),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 80,
+                            child: Text(entry.key,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: isFiltered ? FontWeight.w700 : FontWeight.w500,
+                                  color: isFiltered ? cs.primary : cs.onSurface,
+                                )),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: fraction,
+                                minHeight: 8,
+                                backgroundColor: cs.outline.withAlpha(40),
+                                valueColor: AlwaysStoppedAnimation(
+                                    isFiltered ? cs.primary : EiraTheme.statsColor.withAlpha(180)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text('${entry.value}',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurface.withAlpha(140),
+                              )),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+// ─── Tag Filter Chip ────────────────────────────────────────────
+class _TagFilterChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+
+  const _TagFilterChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary.withAlpha(20) : cs.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? cs.primary.withAlpha(100) : cs.outline.withAlpha(80),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: selected ? cs.primary : cs.onSurface.withAlpha(120)),
+            const SizedBox(width: 5),
+            Text(label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? cs.primary : cs.onSurface.withAlpha(140),
+                )),
+          ],
+        ),
       ),
     );
   }

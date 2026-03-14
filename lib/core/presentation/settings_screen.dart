@@ -160,6 +160,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: 'EiraFocus v1.0.0',
           ),
 
+          const SizedBox(height: 24),
+
+          // Developer tools
+          _SectionLabel('Developer'),
+          const SizedBox(height: 10),
+          _SettingsTile(
+            icon: Icons.science_outlined,
+            title: 'Simulate Missed Day',
+            subtitle: 'Shifts streak back 2 days to test freeze card',
+            onTap: () async {
+              await DatabaseHelper.instance.debugSimulateMissedDay();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Done — go to Dashboard to see freeze card')),
+                );
+              }
+            },
+          ),
+
           const SizedBox(height: 56),
 
           // Footer

@@ -118,7 +118,7 @@ class MilestoneDialog {
               width: double.infinity,
               height: 40,
               child: OutlinedButton.icon(
-                onPressed: () => _shareBadge(badgeKey, days),
+                onPressed: () => _shareBadge(ctx, badgeKey, days),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 0),
                   textStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
@@ -133,14 +133,14 @@ class MilestoneDialog {
     );
   }
 
-  static Future<void> _shareBadge(GlobalKey key, int days) async {
+  static Future<void> _shareBadge(BuildContext context, GlobalKey key, int days) async {
     try {
       final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
+      if (boundary == null) throw Exception('Badge not ready');
 
       final image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
+      if (byteData == null) throw Exception('Failed to encode badge');
 
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/eirafocus_streak_$days.png');
@@ -148,10 +148,14 @@ class MilestoneDialog {
 
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'I just hit a $days day streak on EiraFocus! 🧘',
+        text: 'I just hit a $days day streak on EiraFocus!',
       );
     } catch (_) {
-      // Silently fail if sharing not available
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sharing is not available on this device')),
+        );
+      }
     }
   }
 
