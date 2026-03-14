@@ -245,7 +245,7 @@ class _GoalSetting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final presets = [0, 30, 60, 90, 120, 180];
+    final presets = [0, 5, 15, 30, 60, 90, 120, 180];
 
     return Container(
       padding: const EdgeInsets.all(16),

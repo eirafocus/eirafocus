@@ -191,6 +191,8 @@ class _BreathingScreenState extends State<BreathingScreen> {
                   Text(method.name,
                       style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 16),
+                  _BreathingPreview(method: method),
+                  const SizedBox(height: 16),
                   Text('How are you feeling?',
                       style: GoogleFonts.inter(fontSize: 13, color: cs.onSurface.withAlpha(100))),
                   const SizedBox(height: 10),
@@ -482,6 +484,139 @@ class _BreathingScreenState extends State<BreathingScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Breathing Pattern Preview ─────────────────────────────────
+class _BreathingPreview extends StatefulWidget {
+  final BreathingMethod method;
+  const _BreathingPreview({required this.method});
+
+  @override
+  State<_BreathingPreview> createState() => _BreathingPreviewState();
+}
+
+class _BreathingPreviewState extends State<_BreathingPreview>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    final m = widget.method;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: m.totalDurationPerCycle),
+    )..repeat();
+
+    final items = <TweenSequenceItem<double>>[
+      TweenSequenceItem(tween: Tween(begin: 0.45, end: 1.0), weight: m.inhaleDuration.toDouble()),
+      if (m.holdDuration > 0)
+        TweenSequenceItem(tween: ConstantTween(1.0), weight: m.holdDuration.toDouble()),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.45), weight: m.exhaleDuration.toDouble()),
+      if (m.holdAfterExhaleDuration > 0)
+        TweenSequenceItem(tween: ConstantTween(0.45), weight: m.holdAfterExhaleDuration.toDouble()),
+    ];
+    _anim = TweenSequence(items).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String get _phaseLabel {
+    final m = widget.method;
+    final elapsed = _ctrl.value * m.totalDurationPerCycle;
+    double t = 0;
+    if (elapsed < (t += m.inhaleDuration)) return 'Inhale';
+    if (m.holdDuration > 0 && elapsed < (t += m.holdDuration)) return 'Hold';
+    if (elapsed < (t += m.exhaleDuration)) return 'Exhale';
+    return 'Hold';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = EiraTheme.breathingColor;
+    final cs = Theme.of(context).colorScheme;
+    final m = widget.method;
+    final total = m.totalDurationPerCycle;
+
+    // Phase segments: [label, seconds, color]
+    final phases = <(String, int, Color)>[
+      ('Inhale', m.inhaleDuration, color),
+      if (m.holdDuration > 0) ('Hold', m.holdDuration, const Color(0xFFFFB300)),
+      ('Exhale', m.exhaleDuration, const Color(0xFF42A5F5)),
+      if (m.holdAfterExhaleDuration > 0) ('Hold', m.holdAfterExhaleDuration, const Color(0xFFFFB300)),
+    ];
+
+    return Column(
+      children: [
+        // Animated circle
+        AnimatedBuilder(
+          animation: _anim,
+          builder: (_, __) {
+            return Column(
+              children: [
+                SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Center(
+                    child: Container(
+                      width: 72 * _anim.value,
+                      height: 72 * _anim.value,
+                      decoration: BoxDecoration(
+                        color: color.withAlpha(30),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: color.withAlpha(120), width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _phaseLabel,
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        // Segmented timing bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Row(
+            children: phases.map((p) {
+              return Expanded(
+                flex: p.$2,
+                child: Container(
+                  height: 6,
+                  color: p.$3.withAlpha(160),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Phase labels
+        Row(
+          children: phases.map((p) {
+            return Expanded(
+              flex: p.$2,
+              child: Column(
+                children: [
+                  Text(p.$1, style: GoogleFonts.inter(fontSize: 9, color: cs.onSurface.withAlpha(100)), textAlign: TextAlign.center),
+                  Text('${p.$2}s', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w600, color: cs.onSurface.withAlpha(140)), textAlign: TextAlign.center),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

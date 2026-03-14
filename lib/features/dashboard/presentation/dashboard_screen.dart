@@ -89,6 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _loadDataAndCheckMilestone() async {
     final oldStreak = _currentStreak;
+    final oldWeeklyMinutes = _weeklyMinutes;
     await _loadData();
     if (_currentStreak > oldStreak) {
       final milestone = MilestoneDialog.checkMilestone(_currentStreak);
@@ -97,13 +98,66 @@ class _DashboardScreenState extends State<DashboardScreen>
         return;
       }
     }
-    // Check weekly goal celebration
-    if (_weeklyGoal != null && _weeklyMinutes >= _weeklyGoal! && mounted) {
-      final oldWeeklyMinutes = _weeklyMinutes - 1; // approximate
-      if (oldWeeklyMinutes < _weeklyGoal!) {
-        // Just hit the goal
-      }
+    // Show celebration exactly when the goal is crossed
+    if (_weeklyGoal != null &&
+        oldWeeklyMinutes < _weeklyGoal! &&
+        _weeklyMinutes >= _weeklyGoal! &&
+        mounted) {
+      _showWeeklyGoalCelebration(_weeklyGoal!);
     }
+  }
+
+  void _showWeeklyGoalCelebration(int goal) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: EiraTheme.statsColor.withAlpha(20),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.emoji_events_rounded, size: 36, color: EiraTheme.statsColor),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Weekly Goal Reached!',
+                style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: cs.onSurface),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "You've hit $goal minutes this week. Keep up the incredible work!",
+                style: GoogleFonts.inter(fontSize: 14, color: cs.onSurface.withAlpha(140), height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EiraTheme.statsColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text('Keep it up!', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _launchPreset(Map<String, dynamic> preset) {
