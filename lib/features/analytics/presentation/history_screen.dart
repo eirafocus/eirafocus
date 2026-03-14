@@ -28,6 +28,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _loading = true;
 
   // Search & filter state
+  final _searchController = TextEditingController();
   String _searchQuery = '';
   String _typeFilter = 'All'; // 'All', 'Breathing', 'Meditation'
   String? _tagFilter;
@@ -37,6 +38,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() {
     super.initState();
     _loadSessions();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSessions() async {
@@ -58,11 +65,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   List<MeditationSession> get _filteredSessions {
+    final q = _searchQuery.toLowerCase().trim();
     return _allSessions.where((s) {
       if (_typeFilter != 'All' && s.type != _typeFilter) return false;
-      if (_searchQuery.isNotEmpty &&
-          !s.method.toLowerCase().contains(_searchQuery.toLowerCase())) {
-        return false;
+      if (q.isNotEmpty) {
+        final matchesMethod = s.method.toLowerCase().contains(q);
+        final matchesJournal = s.journal != null && s.journal!.toLowerCase().contains(q);
+        final matchesTag = s.tags.any((t) => t.toLowerCase().contains(q));
+        if (!matchesMethod && !matchesJournal && !matchesTag) return false;
       }
       if (_tagFilter != null && !s.tags.contains(_tagFilter)) return false;
       if (_dateRange != null) {
@@ -73,6 +83,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
       }
       return true;
     }).toList();
+  }
+
+  Widget _highlightText(String text, String query, ColorScheme cs) {
+    final baseStyle = GoogleFonts.inter(
+      fontSize: 12,
+      color: cs.onSurface.withAlpha(150),
+      fontStyle: FontStyle.italic,
+      height: 1.4,
+    );
+    if (query.trim().isEmpty) return Text(text, style: baseStyle);
+
+    final q = query.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+    while (true) {
+      final idx = text.toLowerCase().indexOf(q, start);
+      if (idx == -1) {
+        spans.add(TextSpan(text: text.substring(start)));
+        break;
+      }
+      if (idx > start) spans.add(TextSpan(text: text.substring(start, idx)));
+      spans.add(TextSpan(
+        text: text.substring(idx, idx + q.length),
+        style: baseStyle.copyWith(
+          color: cs.primary,
+          fontStyle: FontStyle.normal,
+          fontWeight: FontWeight.w700,
+          backgroundColor: cs.primary.withAlpha(25),
+        ),
+      ));
+      start = idx + q.length;
+    }
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
   }
 
   String _formatDuration(int secs) {
@@ -142,10 +185,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
                   child: TextField(
+                    controller: _searchController,
                     onChanged: (v) => setState(() => _searchQuery = v),
                     decoration: InputDecoration(
-                      hintText: 'Search methods...',
+                      hintText: 'Search sessions, notes, tags...',
                       prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
@@ -433,14 +486,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     Icon(Icons.edit_note_rounded, size: 16, color: cs.onSurface.withAlpha(80)),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: _highlightText(
                         session.journal!,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: cs.onSurface.withAlpha(150),
-                          fontStyle: FontStyle.italic,
-                          height: 1.4,
-                        ),
+                        _searchQuery,
+                        cs,
                       ),
                     ),
                   ],
